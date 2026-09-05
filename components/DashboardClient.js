@@ -359,8 +359,12 @@ export default function DashboardClient({ briefs }) {
               </div>
             </div>
 
-            <a href={`/brief/${selected.id}/overview`} style={{ display: 'inline-block', marginTop: 20, fontSize: 12.5, fontWeight: 600, textDecoration: 'underline' }}>
-              Open volledige brief →
+            <a
+              href={`/api/dashboard/briefs/${selected.id}/pdf`}
+              className="btn-primary tfa-btn-glow"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 7, marginTop: 20, padding: '9px 16px', fontSize: 12.5, textDecoration: 'none' }}
+            >
+              ⤓ Download als PDF
             </a>
           </div>
         </div>
@@ -375,6 +379,8 @@ export default function DashboardClient({ briefs }) {
         }
         .tfa-dash-row { transition: background .12s ease; }
         .tfa-dash-row:hover { background: rgba(230,200,88,.1); }
+        .tfa-btn-glow { transition: filter .12s ease; }
+        .tfa-btn-glow:hover { filter: brightness(1.08); }
         @media (max-width: 560px) {
           .tfa-modal-grid { grid-template-columns: 1fr !important; }
         }
