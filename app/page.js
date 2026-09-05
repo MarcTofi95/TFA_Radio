@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import BrandMark from '../components/BrandMark';
 import BrandWave from '../components/BrandWave';
+import { InstagramIcon, LinkedInIcon, YouTubeIcon } from '../components/SocialIcons';
 
 // Public marketing homepage — general layout/copy inspired by
 // /tmp/canvas_work/Homepage.dc.html, wired to real routes (no data needed).
@@ -70,13 +71,13 @@ export default function HomePage() {
       </section>
 
       <footer style={{ maxWidth: 1180, margin: '40px auto 0', padding: '32px 20px 40px', borderTop: '1px solid #E3E0D5' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 28 }} className="tfa-footer-grid">
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, letterSpacing: '.09em', textTransform: 'uppercase', color: '#1D1D1D', fontWeight: 600 }}>
-              <BrandMark size={20} />
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 32, alignItems: 'start' }} className="tfa-footer-grid">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div className="tfa-footer-heading" style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+              <BrandMark size={15} />
               TFA
             </div>
-            <p style={{ fontSize: 12.5, lineHeight: 1.6, color: '#8C8880', marginTop: 12, maxWidth: 260 }}>
+            <p style={{ fontSize: 12.5, lineHeight: 1.6, color: '#8C8880', margin: 0, maxWidth: 260 }}>
               Radiocommercials, geproduceerd door Team TFA.
             </p>
             <a href="https://tfa.studio" target="_blank" rel="noopener noreferrer" style={{ fontSize: 12.5, fontWeight: 600, color: '#8C6D1F', textDecoration: 'underline', textUnderlineOffset: 2 }}>
@@ -84,29 +85,35 @@ export default function HomePage() {
             </a>
           </div>
 
-          <div>
-            <div style={{ fontSize: 11.5, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.06em', color: '#5C5850', marginBottom: 10 }}>Contact</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div className="tfa-footer-heading">Contact</div>
             <div style={{ fontSize: 12.5, lineHeight: 1.7, color: '#5C5850' }}>
               Koivistokade 26A<br />
               1013 BB Amsterdam
             </div>
-            <div style={{ fontSize: 12.5, lineHeight: 1.9, marginTop: 8 }}>
+            <div style={{ fontSize: 12.5, lineHeight: 1.9 }}>
               <a href="mailto:planning@tfa.studio" style={{ color: '#5C5850', textDecoration: 'none' }}>planning@tfa.studio</a><br />
               <a href="tel:+31850854777" style={{ color: '#5C5850', textDecoration: 'none' }}>+31 85 085 4777</a>
             </div>
           </div>
 
-          <div>
-            <div style={{ fontSize: 11.5, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.06em', color: '#5C5850', marginBottom: 10 }}>Volg ons</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, fontSize: 12.5 }}>
-              <a href="https://www.instagram.com/tfa.studio" target="_blank" rel="noopener noreferrer" className="tfa-footer-link" style={{ color: '#5C5850', textDecoration: 'none' }}>Instagram</a>
-              <a href="https://www.linkedin.com/company/top-format/" target="_blank" rel="noopener noreferrer" className="tfa-footer-link" style={{ color: '#5C5850', textDecoration: 'none' }}>LinkedIn</a>
-              <a href="https://www.youtube.com/@topformatproductions7006" target="_blank" rel="noopener noreferrer" className="tfa-footer-link" style={{ color: '#5C5850', textDecoration: 'none' }}>YouTube</a>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div className="tfa-footer-heading">Volg ons</div>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <a href="https://www.instagram.com/tfa.studio" target="_blank" rel="noopener noreferrer" aria-label="Instagram" className="tfa-footer-icon">
+                <InstagramIcon />
+              </a>
+              <a href="https://www.linkedin.com/company/top-format/" target="_blank" rel="noopener noreferrer" aria-label="LinkedIn" className="tfa-footer-icon">
+                <LinkedInIcon />
+              </a>
+              <a href="https://www.youtube.com/@tfa.studio.amsterdam" target="_blank" rel="noopener noreferrer" aria-label="YouTube" className="tfa-footer-icon">
+                <YouTubeIcon />
+              </a>
             </div>
           </div>
         </div>
 
-        <div style={{ marginTop: 28, paddingTop: 18, borderTop: '1px solid #E3E0D5', fontSize: 11.5, color: '#9C9890' }}>
+        <div style={{ marginTop: 28, paddingTop: 18, borderTop: '1px solid #E3E0D5', fontSize: 11.5, color: '#9C9890', textAlign: 'center' }}>
           © {new Date().getFullYear()} Team TFA
         </div>
       </footer>
@@ -127,10 +134,17 @@ export default function HomePage() {
         .tfa-cta-hero:active { transform: translateY(0) scale(0.99); }
         .tfa-cta-arrow { display: inline-block; transition: transform .18s ease; }
         .tfa-cta-hero:hover .tfa-cta-arrow { transform: translateX(4px); }
-        .tfa-footer-link { transition: color .12s ease; }
-        .tfa-footer-link:hover { color: #8C6D1F; }
+        .tfa-footer-icon {
+          display: flex; align-items: center; justify-content: center;
+          width: 36px; height: 36px; border-radius: 999px; border: 1px solid #C9C5B9;
+          color: #5C5850; transition: color .12s ease, border-color .12s ease, background .12s ease;
+        }
+        .tfa-footer-icon:hover { color: #8C6D1F; border-color: #8C6D1F; background: rgba(230,200,88,.12); }
+        .tfa-footer-heading {
+          font-size: 11.5px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: #5C5850;
+        }
         @media (max-width: 620px) {
-          .tfa-footer-grid { grid-template-columns: 1fr !important; }
+          .tfa-footer-grid { grid-template-columns: 1fr !important; gap: 24px !important; }
         }
       `}</style>
     </div>
