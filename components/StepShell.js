@@ -22,16 +22,23 @@ function WaveIcon({ dim }) {
 // step of the client brief flow (contact/delivery/details/script/voice/
 // music/overview) — ports the sidebar behavior from every original
 // public/*.html page (applyReachableSteps) into one place.
+//
+// Fills the full viewport edge-to-edge, the same way /dashboard's shell does
+// (no centered card, no outer gutters) — the sidebar and the white content
+// panel both run the full height of the screen, and only the white content
+// panel scrolls internally when a step's form is taller than the viewport,
+// so the dark sidebar never looks shorter/taller than the content next to
+// it and never scrolls out of view itself.
 export default function StepShell({ briefId, current, brief, subtitle, bigNum, kicker, title, hint, backHref, backLabel, children }) {
   const reached = computeReached(brief);
   const companyName = brief && brief.companyName && brief.companyName.trim() ? brief.companyName : null;
 
   return (
-    <div style={{ maxWidth: 1180, margin: '44px auto', padding: '0 20px 48px', display: 'flex', gap: 24, alignItems: 'flex-start' }} className="tfa-shell">
+    <div style={{ height: '100vh', background: '#DEDCD7', display: 'flex', overflow: 'hidden' }} className="tfa-shell">
       <div
         style={{
-          flex: '0 0 300px', background: '#1D1D1D', color: '#FFFFFF', borderRadius: 20, padding: '36px 26px',
-          boxShadow: '0 2px 28px rgba(29,29,29,.18)', position: 'sticky', top: 24, display: 'flex', flexDirection: 'column',
+          flex: '0 0 300px', height: '100%', background: '#1D1D1D', color: '#FFFFFF', padding: '36px 26px',
+          display: 'flex', flexDirection: 'column', overflowY: 'auto',
         }}
         className="tfa-sidebar"
       >
@@ -113,8 +120,8 @@ export default function StepShell({ briefId, current, brief, subtitle, bigNum, k
 
       <div
         style={{
-          flex: 1, minWidth: 0, background: '#FFFFFF', borderRadius: 20, padding: '56px 60px',
-          boxShadow: '0 2px 28px rgba(29,29,29,.08)', position: 'relative', overflow: 'hidden',
+          flex: 1, minWidth: 0, height: '100%', background: '#FFFFFF', padding: '56px 60px',
+          position: 'relative', overflowY: 'auto',
         }}
         className="tfa-content"
       >
@@ -148,14 +155,18 @@ export default function StepShell({ briefId, current, brief, subtitle, bigNum, k
         @media (max-width: 900px) {
           .tfa-shell {
             flex-direction: column;
-            margin: 20px auto;
+            height: auto;
+            overflow: visible;
           }
           .tfa-sidebar {
             flex: none;
             width: 100%;
-            position: static;
+            height: auto;
+            overflow: visible;
           }
           .tfa-content {
+            height: auto;
+            overflow: visible;
             padding: 32px 24px;
           }
         }

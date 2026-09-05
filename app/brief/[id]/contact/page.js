@@ -12,7 +12,7 @@ export default function ContactPage({ params }) {
   const { id } = params;
   const router = useRouter();
   const { brief, loading, saveState, schedulePatch, flushPending, patch } = useBrief(id);
-  const showLoader = useMinDelay(loading, 4000);
+  const showLoader = useMinDelay(loading, 2000);
   const [form, setForm] = useState({ companyName: '', contactPerson: '', contactEmail: '' });
 
   // Hydrate local form state from the fetched brief ONLY once, on first

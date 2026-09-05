@@ -19,7 +19,7 @@ export default function MusicPage({ params }) {
   const { id } = params;
   const router = useRouter();
   const { brief, loading, saveState, schedulePatch, flushPending, patch } = useBrief(id);
-  const showLoader = useMinDelay(loading, 4000);
+  const showLoader = useMinDelay(loading, 2000);
   const [selectedTracks, setSelectedTracks] = useState([]);
   const [openPlaylistId, setOpenPlaylistId] = useState(null);
   const [playingTrackId, setPlayingTrackId] = useState(null);

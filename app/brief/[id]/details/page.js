@@ -16,7 +16,7 @@ export default function DetailsPage({ params }) {
   const { id } = params;
   const router = useRouter();
   const { brief, loading, saveState, schedulePatch, flushPending, patch } = useBrief(id);
-  const showLoader = useMinDelay(loading, 4000);
+  const showLoader = useMinDelay(loading, 2000);
   const [form, setForm] = useState({
     disclaimerText: '', extraNote: '', product: '', audience: 'b2b', decisionMaker: '',
     audienceAgeInterests: '', usp: '', price: null, priceDetail: '', mainMessage: '',
@@ -99,17 +99,17 @@ export default function DetailsPage({ params }) {
 
       <div style={{ marginBottom: 22, borderTop: '1px solid #EEECE3', paddingTop: 20 }}>
         <label className="field-label" style={{ marginBottom: 7 }}>Wie wil je bereiken?</label>
-        <div style={{ display: 'flex', gap: 6, maxWidth: 460 }}>
+        <div style={{ display: 'flex', gap: 6 }}>
           <button type="button" className={'seg-btn' + (form.audience === 'b2b' ? ' selected' : '')} onClick={() => update('audience', 'b2b')}>Vooral bedrijven (B2B)</button>
           <button type="button" className={'seg-btn' + (form.audience === 'b2c' ? ' selected' : '')} onClick={() => update('audience', 'b2c')}>Vooral consumenten (B2C)</button>
         </div>
         {form.audience === 'b2b' ? (
-          <div style={{ marginTop: 12, maxWidth: 460 }}>
+          <div style={{ marginTop: 12 }}>
             <label className="field-label">Wie neemt daar de beslissing?</label>
             <input type="text" value={form.decisionMaker} placeholder="Bijv. IT-directeur, inkoopmanager" onChange={(e) => update('decisionMaker', e.target.value)} />
           </div>
         ) : (
-          <div style={{ marginTop: 12, maxWidth: 460 }}>
+          <div style={{ marginTop: 12 }}>
             <label className="field-label">Leeftijd en interesses van je doelgroep</label>
             <input type="text" value={form.audienceAgeInterests} placeholder="Bijv. 30–50 jaar, gezinnen" onChange={(e) => update('audienceAgeInterests', e.target.value)} />
           </div>
@@ -123,12 +123,12 @@ export default function DetailsPage({ params }) {
 
       <div style={{ marginBottom: 22, borderTop: '1px solid #EEECE3', paddingTop: 20 }}>
         <label className="field-label" style={{ marginBottom: 7 }}>Wil je prijzen of een aanbieding noemen?</label>
-        <div style={{ display: 'flex', gap: 6, maxWidth: 220 }}>
+        <div style={{ display: 'flex', gap: 6 }}>
           <button type="button" className={'seg-btn' + (form.price === true ? ' selected' : '')} onClick={() => update('price', true)}>Ja</button>
           <button type="button" className={'seg-btn' + (form.price === false ? ' selected' : '')} onClick={() => update('price', false)}>Nee</button>
         </div>
         {form.price === true && (
-          <div style={{ marginTop: 12, maxWidth: 460 }}>
+          <div style={{ marginTop: 12 }}>
             <label className="field-label">Welke prijs of aanbieding?</label>
             <input type="text" value={form.priceDetail} placeholder="Bijv. vanaf €99 per maand" onChange={(e) => update('priceDetail', e.target.value)} />
           </div>

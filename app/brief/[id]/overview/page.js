@@ -6,6 +6,7 @@ import Preloader from '../../../../components/Preloader';
 import useMinDelay from '../../../../components/useMinDelay';
 import { useBrief } from '../../../../components/useBrief';
 import { MONTH_NAMES_LOWER } from '../../../../components/flowData';
+import { diffWords, hasDiff, DiffText } from '../../../../components/textDiff';
 
 function formatImpressions(brief) {
   const v = brief.impressions;
@@ -38,13 +39,35 @@ function formatAirDate(brief) {
 export default function OverviewPage({ params }) {
   const { id } = params;
   const { brief, loading, patch } = useBrief(id);
-  const showLoader = useMinDelay(loading, 4000);
+  const showLoader = useMinDelay(loading, 2000);
   const [consentChecked, setConsentChecked] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [voicesPool, setVoicesPool] = useState([]);
+  const [tracksPool, setTracksPool] = useState([]);
 
   useEffect(() => {
     setConsentChecked(false);
   }, [id]);
+
+  // The brief only stores the chosen voice/track ids + labels, not their
+  // audioUrl — fetch the full library records once so the overview can play
+  // a preview of what the client actually picked, same as the voice/music
+  // steps do.
+  useEffect(() => {
+    let cancelled = false;
+    Promise.all([fetch('/api/library/voices'), fetch('/api/library/tracks')])
+      .then(async ([vRes, tRes]) => {
+        const [v, t] = await Promise.all([vRes.json(), tRes.json()]);
+        if (!cancelled) {
+          setVoicesPool(Array.isArray(v) ? v : []);
+          setTracksPool(Array.isArray(t) ? t : []);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   if (showLoader) return <Preloader />;
 
@@ -71,6 +94,7 @@ export default function OverviewPage({ params }) {
   } catch (e) {}
 
   const hasTracks = selectedTracks.length > 0;
+  const matchedVoice = brief.selectedVoiceId ? voicesPool.find((v) => v.id === brief.selectedVoiceId) : null;
   const briefReady = !!(brief.editedScript || brief.generatedScript) && !!brief.selectedVoiceId && hasTracks;
 
   async function submit() {
@@ -134,12 +158,26 @@ export default function OverviewPage({ params }) {
           <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontStyle: mainText ? 'italic' : 'normal', fontSize: 16.5, lineHeight: 1.65, marginTop: 14, color: mainText ? '#1D1D1D' : '#9C9890' }}>
             {mainText || 'Nog geen script goedgekeurd.'}
           </div>
-          {brief.needsVariations && varText && (
-            <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid #EAE3C4' }}>
-              <div style={{ fontSize: 11.5, fontWeight: 600, color: '#5C5850', textTransform: 'uppercase' }}>Variatie</div>
-              <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontStyle: 'italic', fontSize: 16.5, lineHeight: 1.65, marginTop: 6 }}>{varText}</div>
-            </div>
-          )}
+          {brief.needsVariations && varText && (() => {
+            const tokens = diffWords(mainText, varText);
+            const changed = hasDiff(tokens);
+            return (
+              <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid #EAE3C4' }}>
+                <div style={{ fontSize: 11.5, fontWeight: 600, color: '#5C5850', textTransform: 'uppercase' }}>
+                  Variatie {changed ? '— wat verschilt' : ''}
+                </div>
+                {changed ? (
+                  <div style={{ fontSize: 15, lineHeight: 1.7, marginTop: 6 }}>
+                    <DiffText tokens={tokens} />
+                  </div>
+                ) : (
+                  <div style={{ fontSize: 13, color: '#8C8880', marginTop: 6, fontStyle: 'italic' }}>
+                    Nog identiek aan het hoofdscript.
+                  </div>
+                )}
+              </div>
+            );
+          })()}
         </div>
 
         <div style={cardStyle}>
@@ -150,6 +188,13 @@ export default function OverviewPage({ params }) {
           <div style={{ fontSize: 13, marginTop: 9, color: voiceLabel ? '#1D1D1D' : '#9C9890' }}>
             {voiceLabel ? voiceLabel + (voiceTags.length ? ' · ' + voiceTags.join(', ') : '') : 'Nog geen stem gekozen.'}
           </div>
+          {voiceLabel && (
+            matchedVoice && matchedVoice.audioUrl ? (
+              <audio controls src={matchedVoice.audioUrl} style={{ width: '100%', height: 34, marginTop: 10 }} />
+            ) : (
+              <div style={{ fontSize: 11.5, color: '#9C9890', marginTop: 8, fontStyle: 'italic' }}>Geen audio beschikbaar voor deze stem.</div>
+            )
+          )}
         </div>
 
         <div style={{ ...cardStyle, gridColumn: '1 / -1' }}>
@@ -159,15 +204,23 @@ export default function OverviewPage({ params }) {
           </div>
           {hasTracks ? (
             <>
-              {selectedTracks.map((t, i) => (
-                <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 10, padding: '8px 10px', background: '#FBF0C8', borderRadius: 8 }}>
-                  <div style={{ width: 20, height: 20, borderRadius: '50%', background: '#E6C858', fontSize: 11, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{i + 1}</div>
-                  <div>
-                    <div style={{ fontSize: 13.5, fontWeight: 700 }}>{t.title}</div>
-                    <div style={{ fontSize: 11.5, color: '#5C5850' }}>{t.artist}{t.artist && t.playlistName ? ' · ' : ''}{t.playlistName}</div>
+              {selectedTracks.map((t, i) => {
+                const matchedTrack = tracksPool.find((pt) => pt.id === t.id);
+                return (
+                  <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 10, padding: '8px 10px', background: '#FBF0C8', borderRadius: 8 }}>
+                    <div style={{ width: 20, height: 20, borderRadius: '50%', background: '#E6C858', fontSize: 11, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none' }}>{i + 1}</div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 13.5, fontWeight: 700 }}>{t.title}</div>
+                      <div style={{ fontSize: 11.5, color: '#5C5850' }}>{t.artist}{t.artist && t.playlistName ? ' · ' : ''}{t.playlistName}</div>
+                      {matchedTrack && matchedTrack.audioUrl ? (
+                        <audio controls src={matchedTrack.audioUrl} style={{ width: '100%', height: 32, marginTop: 6 }} />
+                      ) : (
+                        <div style={{ fontSize: 11, color: '#8C8880', marginTop: 4, fontStyle: 'italic' }}>Geen audio beschikbaar voor deze track.</div>
+                      )}
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
               {selectedTracks.length > 1 && <div style={{ fontSize: 11, color: '#8C8880', marginTop: 8 }}>TFA combineert er één van deze met de gekozen stem tot de definitieve mix.</div>}
             </>
           ) : (

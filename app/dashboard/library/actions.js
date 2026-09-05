@@ -1,7 +1,10 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { createTrack, deleteTrack, createVoice, deleteVoice } from '../../../lib/library';
+import {
+  createTrack, deleteTrack, updateTrack, deleteTracksBulk,
+  createVoice, deleteVoice, updateVoice, deleteVoicesBulk,
+} from '../../../lib/library';
 
 // A connected Blob store on Vercel authenticates via OIDC by default —
 // BLOB_STORE_ID + an auto-rotated VERCEL_OIDC_TOKEN — not the older static
@@ -46,6 +49,34 @@ export async function removeTrackAction(id) {
   revalidatePath('/dashboard/library');
 }
 
+// Edit an existing track in place — audioFile is optional here (unlike the
+// add form, where it's just skipped if empty): only re-upload and replace
+// audioUrl when the producer actually picked a new file, otherwise leave
+// the existing audio alone.
+export async function updateTrackAction(id, formData) {
+  const audioFile = formData.get('audioFile');
+  const patch = {
+    title: formData.get('title'),
+    artist: formData.get('artist'),
+    category: formData.get('category'),
+    fileId: formData.get('fileId') || '',
+  };
+  if (audioFile && typeof audioFile !== 'string' && audioFile.size) {
+    patch.audioUrl = await uploadAudioIfPresent(audioFile, 'tracks');
+  }
+  await updateTrack(id, patch);
+  revalidatePath('/dashboard/library');
+}
+
+// Batch delete — the library view's "select several, delete at once" flow
+// submits every checked id in one FormData (repeated `id` entries) instead
+// of firing removeTrackAction once per row.
+export async function removeTracksBulkAction(formData) {
+  const ids = formData.getAll('id').map(String).filter(Boolean);
+  await deleteTracksBulk(ids);
+  revalidatePath('/dashboard/library');
+}
+
 export async function addVoiceAction(formData) {
   const tagsRaw = formData.get('tags') || '';
   const tags = tagsRaw
@@ -67,6 +98,33 @@ export async function addVoiceAction(formData) {
 
 export async function removeVoiceAction(id) {
   await deleteVoice(id);
+  revalidatePath('/dashboard/library');
+}
+
+// See updateTrackAction above — same "only replace audio if a new file was
+// actually chosen" behavior, voice side.
+export async function updateVoiceAction(id, formData) {
+  const tagsRaw = formData.get('tags') || '';
+  const tags = tagsRaw.toString().split(',').map((t) => t.trim()).filter(Boolean);
+  const audioFile = formData.get('audioFile');
+  const patch = {
+    name: formData.get('name'),
+    gender: formData.get('gender'),
+    ageRange: formData.get('ageRange'),
+    tags,
+    fileId: formData.get('fileId') || '',
+  };
+  if (audioFile && typeof audioFile !== 'string' && audioFile.size) {
+    patch.audioUrl = await uploadAudioIfPresent(audioFile, 'voices');
+  }
+  await updateVoice(id, patch);
+  revalidatePath('/dashboard/library');
+}
+
+// See removeTracksBulkAction above — voice side.
+export async function removeVoicesBulkAction(formData) {
+  const ids = formData.getAll('id').map(String).filter(Boolean);
+  await deleteVoicesBulk(ids);
   revalidatePath('/dashboard/library');
 }
 

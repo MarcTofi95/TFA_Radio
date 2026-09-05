@@ -23,8 +23,11 @@ export default function PromptVersionsClient({ initialVersions }) {
   const [showForm, setShowForm] = useState(false);
   const [label, setLabel] = useState('');
   const [content, setContent] = useState((initialVersions.find((v) => v.status === 'live') || {}).content || '');
-  const [busyId, setBusyId] = useState(null); // 'new' while creating, or a version id while activating/deactivating
+  const [busyId, setBusyId] = useState(null); // 'new' while creating, or a version id while activating/deactivating/saving
   const [error, setError] = useState('');
+  const [editingId, setEditingId] = useState(null);
+  const [editLabel, setEditLabel] = useState('');
+  const [editContent, setEditContent] = useState('');
 
   async function refresh() {
     try {
@@ -74,6 +77,34 @@ export default function PromptVersionsClient({ initialVersions }) {
   }
 
   const liveVersion = versions.find((v) => v.status === 'live');
+
+  function startEdit(v) {
+    setEditingId(v.id);
+    setEditLabel(v.label);
+    setEditContent(v.content);
+  }
+  function cancelEdit() {
+    setEditingId(null);
+  }
+  async function saveEdit(id) {
+    if (!editContent.trim()) return;
+    setBusyId(id);
+    setError('');
+    try {
+      const res = await fetch(`/api/dashboard/prompt-versions/${id}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ action: 'update', label: editLabel, content: editContent }),
+      });
+      if (!res.ok) throw new Error('Bewerken mislukt');
+      await refresh();
+      setEditingId(null);
+    } catch (err) {
+      setError('Kon de wijzigingen niet opslaan. Probeer het opnieuw.');
+    } finally {
+      setBusyId(null);
+    }
+  }
 
   return (
     <div>
@@ -126,33 +157,77 @@ export default function PromptVersionsClient({ initialVersions }) {
       )}
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        {versions.map((v) => (
-          <div key={v.id} style={cardStyle}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <span style={{ fontSize: 14, fontWeight: 600 }}>{v.label}</span>
-                <StatusBadge status={v.status} />
+        {versions.map((v) => {
+          const isEditing = editingId === v.id;
+          return (
+            <div key={v.id} style={cardStyle}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 160 }}>
+                  {isEditing ? (
+                    <input
+                      type="text"
+                      value={editLabel}
+                      onChange={(e) => setEditLabel(e.target.value)}
+                      placeholder="Naam"
+                      style={{ fontSize: 14, fontWeight: 600, border: '1px solid #C9C5B9', borderRadius: 6, padding: '4px 8px', flex: 1, minWidth: 0 }}
+                    />
+                  ) : (
+                    <span style={{ fontSize: 14, fontWeight: 600 }}>{v.label}</span>
+                  )}
+                  <StatusBadge status={v.status} />
+                </div>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  {!isEditing && <span style={{ fontSize: 11, color: '#8C8880' }}>{new Date(v.createdAt).toLocaleString('nl-NL')}</span>}
+                  {isEditing ? (
+                    <>
+                      <button type="button" disabled={busyId === v.id} onClick={cancelEdit} className="tfa-btn-ghost" style={{ border: '1px solid #C9C5B9', borderRadius: 8, background: '#FFFFFF', padding: '6px 12px', fontSize: 12, cursor: 'pointer' }}>
+                        Annuleren
+                      </button>
+                      <button type="button" disabled={busyId === v.id || !editContent.trim()} onClick={() => saveEdit(v.id)} className="btn-primary tfa-btn-glow" style={{ padding: '6px 12px', fontSize: 12, opacity: busyId === v.id ? 0.7 : 1 }}>
+                        {busyId === v.id ? 'Bezig...' : 'Opslaan'}
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button type="button" disabled={busyId === v.id} onClick={() => startEdit(v)} className="tfa-btn-ghost" style={{ border: '1px solid #C9C5B9', borderRadius: 8, background: '#FFFFFF', padding: '6px 12px', fontSize: 12, cursor: 'pointer' }}>
+                        Bewerken
+                      </button>
+                      {v.status === 'live' ? (
+                        <button type="button" disabled={busyId === v.id} onClick={() => setAction(v.id, 'deactivate')} className="tfa-btn-ghost" style={{ border: '1px solid #C9C5B9', borderRadius: 8, background: '#FFFFFF', padding: '6px 12px', fontSize: 12, cursor: 'pointer', opacity: busyId === v.id ? 0.6 : 1 }}>
+                          {busyId === v.id ? 'Bezig...' : 'Deactiveren'}
+                        </button>
+                      ) : (
+                        <button type="button" disabled={busyId === v.id} onClick={() => setAction(v.id, 'activate')} className="btn-primary tfa-btn-glow" style={{ padding: '6px 12px', fontSize: 12, opacity: busyId === v.id ? 0.7 : 1 }}>
+                          {busyId === v.id ? 'Bezig...' : 'Maak live'}
+                        </button>
+                      )}
+                    </>
+                  )}
+                </div>
               </div>
-              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                <span style={{ fontSize: 11, color: '#8C8880' }}>{new Date(v.createdAt).toLocaleString('nl-NL')}</span>
-                {v.status === 'live' ? (
-                  <button type="button" disabled={busyId === v.id} onClick={() => setAction(v.id, 'deactivate')} style={{ border: '1px solid #C9C5B9', borderRadius: 8, background: '#FFFFFF', padding: '6px 12px', fontSize: 12, cursor: 'pointer', opacity: busyId === v.id ? 0.6 : 1 }}>
-                    {busyId === v.id ? 'Bezig...' : 'Deactiveren'}
-                  </button>
-                ) : (
-                  <button type="button" disabled={busyId === v.id} onClick={() => setAction(v.id, 'activate')} className="btn-primary" style={{ padding: '6px 12px', fontSize: 12, opacity: busyId === v.id ? 0.7 : 1 }}>
-                    {busyId === v.id ? 'Bezig...' : 'Maak live'}
-                  </button>
-                )}
-              </div>
+              {isEditing ? (
+                <textarea
+                  value={editContent}
+                  onChange={(e) => setEditContent(e.target.value)}
+                  style={{ marginTop: 10, width: '100%', minHeight: 220, border: '1px solid #C9C5B9', borderRadius: 8, padding: '10px 12px', fontSize: 12.5, lineHeight: 1.55, fontFamily: 'inherit' }}
+                />
+              ) : (
+                <pre style={{ marginTop: 10, whiteSpace: 'pre-wrap', fontFamily: 'inherit', fontSize: 12.5, lineHeight: 1.55, color: '#383209', background: '#FBF9EC', border: '1px solid #EAE3C4', borderRadius: 8, padding: '10px 12px', maxHeight: 160, overflowY: 'auto' }}>
+                  {v.content}
+                </pre>
+              )}
             </div>
-            <pre style={{ marginTop: 10, whiteSpace: 'pre-wrap', fontFamily: 'inherit', fontSize: 12.5, lineHeight: 1.55, color: '#383209', background: '#FBF9EC', border: '1px solid #EAE3C4', borderRadius: 8, padding: '10px 12px', maxHeight: 160, overflowY: 'auto' }}>
-              {v.content}
-            </pre>
-          </div>
-        ))}
+          );
+        })}
         {versions.length === 0 && <div style={{ fontSize: 13, color: '#8C8880' }}>Nog geen versies.</div>}
       </div>
+
+      <style jsx>{`
+        .tfa-btn-ghost { transition: background .12s ease, border-color .12s ease; }
+        .tfa-btn-ghost:hover:not(:disabled) { background: #F3F1EA; border-color: #B9B6AC; }
+        .tfa-btn-glow { transition: filter .12s ease; }
+        .tfa-btn-glow:hover:not(:disabled) { filter: brightness(1.08); }
+      `}</style>
     </div>
   );
 }

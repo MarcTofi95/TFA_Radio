@@ -11,7 +11,7 @@ import { useEffect, useRef, useState } from 'react';
 // not yet loaded, ...). The hook returns true until BOTH the real loading is
 // done AND at least `ms` have passed since this hook first mounted/started
 // loading.
-export default function useMinDelay(isLoading, ms = 4000) {
+export default function useMinDelay(isLoading, ms = 2000) {
   const [minElapsed, setMinElapsed] = useState(false);
   const startedAt = useRef(null);
 

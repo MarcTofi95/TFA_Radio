@@ -69,6 +69,19 @@ function StatusSelect({ brief, onChange, compact }) {
   );
 }
 
+function Field({ label, children, empty }) {
+  return (
+    <div>
+      <div style={{ fontSize: 10.5, fontWeight: 600, color: '#8C8880', textTransform: 'uppercase', letterSpacing: '.04em' }}>{label}</div>
+      <div style={{ fontSize: 13.5, marginTop: 3, color: empty ? '#9C9890' : '#1D1D1D' }}>{children}</div>
+    </div>
+  );
+}
+
+function ModalSectionTitle({ children }) {
+  return <div style={{ fontSize: 13, fontWeight: 700, color: '#1D1D1D', marginBottom: 10 }}>{children}</div>;
+}
+
 export default function DashboardClient({ briefs }) {
   const [rows, setRows] = useState(briefs);
   const [range, setRange] = useState('30d');
@@ -76,6 +89,15 @@ export default function DashboardClient({ briefs }) {
   const [sortDir, setSortDir] = useState('desc');
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState(null);
+  // Clicking a status tile (To-do / Wacht op klant / In behandeling / Klaar)
+  // filters the table below it to just that status; clicking the same tile
+  // again (or picking a different one) toggles back to the full overview.
+  const [statusFilter, setStatusFilter] = useState(null);
+
+  function toggleStatusFilter(status) {
+    setStatusFilter((cur) => (cur === status ? null : status));
+    setPage(1);
+  }
 
   // Keep local editable copy in sync if the server-fetched prop ever changes
   // (e.g. a fresh navigation to the dashboard).
@@ -110,8 +132,13 @@ export default function DashboardClient({ briefs }) {
     return rows.filter((b) => new Date(b.createdAt).getTime() >= cutoff);
   }, [rows, range]);
 
+  const visible = useMemo(() => {
+    if (!statusFilter) return filtered;
+    return filtered.filter((b) => (b.status || 'todo') === statusFilter);
+  }, [filtered, statusFilter]);
+
   const sorted = useMemo(() => {
-    const list = filtered.slice();
+    const list = visible.slice();
     list.sort((a, b) => {
       let av = a[sortField] || '';
       let bv = b[sortField] || '';
@@ -120,7 +147,7 @@ export default function DashboardClient({ briefs }) {
       return 0;
     });
     return list;
-  }, [filtered, sortField, sortDir]);
+  }, [visible, sortField, sortDir]);
 
   const totalPages = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
   const pageSafe = Math.min(page, totalPages);
@@ -146,6 +173,20 @@ export default function DashboardClient({ briefs }) {
   }
 
   const cardStyle = { background: '#FFFFFF', borderRadius: 14, padding: '20px 22px', boxShadow: '0 1px 10px rgba(29,29,29,.05)' };
+  const modalCardStyle = { background: '#FBF9EC', border: '1.5px solid #EAE3C4', borderLeft: '4px solid #E6C858', borderRadius: '4px 14px 14px 4px', padding: '14px 16px' };
+  function tileStyle(status, accent) {
+    const active = statusFilter === status;
+    return {
+      ...cardStyle,
+      cursor: 'pointer',
+      textAlign: 'left',
+      width: '100%',
+      font: 'inherit',
+      color: 'inherit',
+      border: active ? `1.5px solid ${accent}` : '1.5px solid transparent',
+      boxShadow: active ? `0 1px 10px ${accent}33` : cardStyle.boxShadow,
+    };
+  }
 
   return (
     <div>
@@ -170,23 +211,32 @@ export default function DashboardClient({ briefs }) {
           <div style={{ fontSize: 12, color: '#8C8880', textTransform: 'uppercase', letterSpacing: '.04em' }}>Totaal briefs</div>
           <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 32, fontWeight: 600, marginTop: 6 }}>{stats.total}</div>
         </div>
-        <div style={cardStyle}>
+        <button type="button" onClick={() => toggleStatusFilter('todo')} style={tileStyle('todo', '#5C5850')}>
           <div style={{ fontSize: 12, color: '#8C8880', textTransform: 'uppercase', letterSpacing: '.04em' }}>To-do</div>
           <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 32, fontWeight: 600, marginTop: 6 }}>{stats.todo}</div>
-        </div>
-        <div style={cardStyle}>
+        </button>
+        <button type="button" onClick={() => toggleStatusFilter('pending_customer')} style={tileStyle('pending_customer', '#8C6D1F')}>
           <div style={{ fontSize: 12, color: '#8C8880', textTransform: 'uppercase', letterSpacing: '.04em' }}>Wacht op klant</div>
           <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 32, fontWeight: 600, marginTop: 6, color: '#8C6D1F' }}>{stats.pendingCustomer}</div>
-        </div>
-        <div style={cardStyle}>
+        </button>
+        <button type="button" onClick={() => toggleStatusFilter('in_progress')} style={tileStyle('in_progress', '#1F6F8C')}>
           <div style={{ fontSize: 12, color: '#8C8880', textTransform: 'uppercase', letterSpacing: '.04em' }}>In behandeling</div>
           <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 32, fontWeight: 600, marginTop: 6, color: '#1F6F8C' }}>{stats.inProgress}</div>
-        </div>
-        <div style={cardStyle}>
+        </button>
+        <button type="button" onClick={() => toggleStatusFilter('done')} style={tileStyle('done', '#1D7A46')}>
           <div style={{ fontSize: 12, color: '#8C8880', textTransform: 'uppercase', letterSpacing: '.04em' }}>Klaar</div>
           <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 32, fontWeight: 600, marginTop: 6, color: '#1D7A46' }}>{stats.done}</div>
-        </div>
+        </button>
       </div>
+
+      {statusFilter && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: -14, marginBottom: 18, fontSize: 12.5, color: '#5C5850' }}>
+          Gefilterd op <b style={{ color: STATUS_META[statusFilter].color }}>{STATUS_META[statusFilter].label}</b>
+          <button type="button" onClick={() => setStatusFilter(null)} style={{ border: '1px solid #C9C5B9', borderRadius: 999, background: '#FFFFFF', padding: '3px 10px', fontSize: 11.5, cursor: 'pointer', color: '#5C5850' }}>
+            ✕ Wis filter
+          </button>
+        </div>
+      )}
 
       <div style={{ background: '#FFFFFF', borderRadius: 14, boxShadow: '0 1px 10px rgba(29,29,29,.05)', overflow: 'hidden' }}>
         <div style={{ overflowX: 'auto' }}>
@@ -211,7 +261,7 @@ export default function DashboardClient({ briefs }) {
             </thead>
             <tbody>
               {pageItems.map((b) => (
-                <tr key={b.id} onClick={() => setSelected(b)} style={{ borderBottom: '1px solid #F3F1EA', cursor: 'pointer' }}>
+                <tr key={b.id} onClick={() => setSelected(b)} className="tfa-dash-row" style={{ borderBottom: '1px solid #F3F1EA', cursor: 'pointer' }}>
                   <td style={{ padding: '12px 16px', fontWeight: 600, color: b.companyName ? '#1D1D1D' : '#9C9890' }}>
                     {b.companyName || 'Nog geen bedrijfsnaam'}
                   </td>
@@ -244,44 +294,72 @@ export default function DashboardClient({ briefs }) {
           onClick={() => setSelected(null)}
           style={{ position: 'fixed', inset: 0, background: 'rgba(29,29,29,.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, zIndex: 50 }}
         >
-          <div onClick={(e) => e.stopPropagation()} style={{ background: '#FFFFFF', borderRadius: 16, padding: '28px 30px', maxWidth: 560, width: '100%', maxHeight: '85vh', overflowY: 'auto' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-              <h2 style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 24, margin: 0 }}>{selected.companyName || 'Nog geen bedrijfsnaam'}</h2>
-              <button type="button" onClick={() => setSelected(null)} style={{ border: 'none', background: 'transparent', fontSize: 18, cursor: 'pointer' }}>✕</button>
-            </div>
-            <div style={{ marginTop: 16, fontSize: 13, lineHeight: 1.8, color: '#1D1D1D' }}>
-              <div><b>Contact:</b> {selected.contactPerson || '—'} ({selected.contactEmail || '—'})</div>
-              <div><b>Hoofdspot:</b> {selected.hoofdspotLength || '20'}″{selected.needsVariations ? ' + variatie' : ''}</div>
-              <div><b>Stem:</b> {selected.selectedVoiceLabel || 'Nog niet gekozen'}</div>
+          <div onClick={(e) => e.stopPropagation()} style={{ background: '#FFFFFF', borderRadius: 16, padding: '26px 28px', maxWidth: 640, width: '100%', maxHeight: '85vh', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
               <div>
-                <b>Muziek:</b>
+                <h2 style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 24, margin: 0 }}>{selected.companyName || 'Nog geen bedrijfsnaam'}</h2>
+                <div style={{ marginTop: 8 }}>
+                  <StatusSelect brief={selected} onChange={handleStatusChange} />
+                </div>
+              </div>
+              <button type="button" onClick={() => setSelected(null)} style={{ border: 'none', background: 'transparent', fontSize: 18, cursor: 'pointer', flex: 'none' }}>✕</button>
+            </div>
+
+            <div className="tfa-modal-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px 14px', marginTop: 18 }}>
+              <div style={modalCardStyle}>
+                <ModalSectionTitle>Contact</ModalSectionTitle>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <Field label="Contactpersoon" empty={!selected.contactPerson}>{selected.contactPerson || 'Nog niet opgegeven'}</Field>
+                  <Field label="E-mail" empty={!selected.contactEmail}>{selected.contactEmail || 'Nog niet opgegeven'}</Field>
+                </div>
+              </div>
+
+              <div style={modalCardStyle}>
+                <ModalSectionTitle>Levering</ModalSectionTitle>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <Field label="Hoofdspot">{selected.hoofdspotLength || '20'}″{selected.needsVariations ? ' + variatie' : ''}</Field>
+                  <Field label="Aangemaakt">{new Date(selected.createdAt).toLocaleString('nl-NL')}</Field>
+                  {selected.submittedAt && <Field label="Verzonden">{new Date(selected.submittedAt).toLocaleString('nl-NL')}</Field>}
+                </div>
+              </div>
+
+              {(selected.editedScript || selected.generatedScript) && (
+                <div style={{ ...modalCardStyle, gridColumn: '1 / -1' }}>
+                  <ModalSectionTitle>Script</ModalSectionTitle>
+                  <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontStyle: 'italic', fontSize: 14.5, lineHeight: 1.6, color: '#1D1D1D' }}>
+                    {selected.editedScript !== null && selected.editedScript !== undefined ? selected.editedScript : selected.generatedScript}
+                  </div>
+                </div>
+              )}
+
+              <div style={modalCardStyle}>
+                <ModalSectionTitle>Stem</ModalSectionTitle>
+                <Field label="Gekozen stem" empty={!selected.selectedVoiceLabel}>{selected.selectedVoiceLabel || 'Nog niet gekozen'}</Field>
+              </div>
+
+              <div style={modalCardStyle}>
+                <ModalSectionTitle>Muziek</ModalSectionTitle>
                 {(() => {
                   const tracks = parseSelectedTracks(selected);
-                  if (!tracks.length) return ' Nog niet gekozen';
+                  if (!tracks.length) return <div style={{ fontSize: 13.5, color: '#9C9890' }}>Nog niet gekozen</div>;
                   return (
-                    <ul style={{ margin: '4px 0 0', paddingLeft: 18 }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                       {tracks.map((t, i) => (
-                        <li key={t.id || i}>
-                          {t.title || 'Onbekende track'}{t.artist ? ` — ${t.artist}` : ''}
-                          {' '}<span style={{ color: '#8C6D1F', fontWeight: 600 }}>({t.playlistName || 'categorie onbekend'})</span>
-                        </li>
+                        <div key={t.id || i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 8px', background: '#FBF0C8', borderRadius: 8 }}>
+                          <div style={{ width: 16, height: 16, borderRadius: '50%', background: '#E6C858', fontSize: 10, fontWeight: 700, flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{i + 1}</div>
+                          <div style={{ minWidth: 0 }}>
+                            <div style={{ fontSize: 12.5, fontWeight: 700 }}>{t.title || 'Onbekende track'}{t.artist ? ` — ${t.artist}` : ''}</div>
+                            <div style={{ fontSize: 11, color: '#8C6D1F', fontWeight: 600 }}>{t.playlistName || 'categorie onbekend'}</div>
+                          </div>
+                        </div>
                       ))}
-                    </ul>
+                    </div>
                   );
                 })()}
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 4 }}>
-                <b>Status:</b> <StatusSelect brief={selected} onChange={handleStatusChange} />
-              </div>
-              <div><b>Aangemaakt:</b> {new Date(selected.createdAt).toLocaleString('nl-NL')}</div>
-              {selected.submittedAt && <div><b>Verzonden:</b> {new Date(selected.submittedAt).toLocaleString('nl-NL')}</div>}
             </div>
-            {(selected.editedScript || selected.generatedScript) && (
-              <div style={{ marginTop: 16, background: '#FBF9EC', border: '1px solid #EAE3C4', borderRadius: 12, padding: '14px 16px', fontFamily: "'Playfair Display', Georgia, serif", fontStyle: 'italic', fontSize: 14, lineHeight: 1.6 }}>
-                {selected.editedScript !== null && selected.editedScript !== undefined ? selected.editedScript : selected.generatedScript}
-              </div>
-            )}
-            <a href={`/brief/${selected.id}/overview`} style={{ display: 'inline-block', marginTop: 18, fontSize: 12.5, fontWeight: 600, textDecoration: 'underline' }}>
+
+            <a href={`/brief/${selected.id}/overview`} style={{ display: 'inline-block', marginTop: 20, fontSize: 12.5, fontWeight: 600, textDecoration: 'underline' }}>
               Open volledige brief →
             </a>
           </div>
@@ -294,6 +372,11 @@ export default function DashboardClient({ briefs }) {
         }
         @media (max-width: 560px) {
           .tfa-stats-grid { grid-template-columns: repeat(2, 1fr) !important; }
+        }
+        .tfa-dash-row { transition: background .12s ease; }
+        .tfa-dash-row:hover { background: rgba(230,200,88,.1); }
+        @media (max-width: 560px) {
+          .tfa-modal-grid { grid-template-columns: 1fr !important; }
         }
       `}</style>
     </div>

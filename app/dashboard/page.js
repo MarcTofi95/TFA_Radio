@@ -42,6 +42,9 @@ export default async function DashboardPage() {
           <Link href="/dashboard/prompt" className="tfa-dash-navlink" style={{ padding: '10px 12px', borderRadius: 8, color: '#B9B6AC', fontSize: 14, textDecoration: 'none' }}>
             AI-prompt
           </Link>
+          <Link href="/dashboard/reports" className="tfa-dash-navlink" style={{ padding: '10px 12px', borderRadius: 8, color: '#B9B6AC', fontSize: 14, textDecoration: 'none' }}>
+            Rapporten
+          </Link>
         </nav>
         <div style={{ marginTop: 'auto', paddingTop: 20, borderTop: '1px solid #33301F', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <span style={{ fontSize: 13, color: '#B9B6AC' }}>Uitloggen</span>

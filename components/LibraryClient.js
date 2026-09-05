@@ -1,13 +1,15 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useFormStatus } from 'react-dom';
 import {
-  addTrackAction, removeTrackAction, addVoiceAction, removeVoiceAction,
+  addTrackAction, removeTrackAction, updateTrackAction, removeTracksBulkAction,
+  addVoiceAction, removeVoiceAction, updateVoiceAction, removeVoicesBulkAction,
   addTracksBulkAction, addVoicesBulkAction,
 } from '../app/dashboard/library/actions';
 
 const cardStyle = { background: '#FBF9EC', border: '1.5px solid #EAE3C4', borderRadius: 12, padding: '14px 16px' };
+const rowStyle = { display: 'flex', alignItems: 'center', gap: 12, background: '#FFFFFF', borderRadius: 10, padding: '10px 14px', boxShadow: '0 1px 6px rgba(29,29,29,.04)', flexWrap: 'wrap' };
 
 // Must be a child of the <form>, not the component that renders the form —
 // useFormStatus only reports the nearest ancestor <form>'s pending state
@@ -32,10 +34,31 @@ function SubmitButton({ label, pendingLabel }) {
   );
 }
 
+// Renders nothing — just watches this form's pending state (must be a
+// child of the <form>, same reason as SubmitButton above) and fires
+// onSaved() the moment a submit finishes, so an inline edit row can close
+// itself automatically once the server action completes instead of the
+// producer having to close it by hand.
+function CloseOnSaved({ onSaved }) {
+  const { pending } = useFormStatus();
+  const wasPending = useRef(false);
+  useEffect(() => {
+    if (wasPending.current && !pending) onSaved();
+    wasPending.current = pending;
+  }, [pending, onSaved]);
+  return null;
+}
+
 function fileBaseName(file) {
   const name = file.name || '';
   const dot = name.lastIndexOf('.');
   return dot > 0 ? name.slice(0, dot) : name;
+}
+
+function confirmDelete(message) {
+  return (e) => {
+    if (!window.confirm(message)) e.preventDefault();
+  };
 }
 
 // Voice tags picker — a dropdown of existing tags (checkable) plus a small
@@ -112,11 +135,13 @@ function TagPicker({ allTags, selected, onChange, onAddTag }) {
   );
 }
 
-// Shared drag-and-drop staging zone + bulk-review list used by both the
-// Muziek and Stemmen tabs. `fields` describes the per-item editable inputs
-// to render for each staged file; the parent supplies the exact shape it
-// needs via renderRow / buildFormData.
-function BulkImportZone({ kind, categories, defaultGender, defaultAgeRange, onConfirm, allTags, onAddTag }) {
+// The ONE way to add music or voices — drag-and-drop (or click-to-browse)
+// for one file or many at once, each staged with its own editable fields
+// before anything is actually imported. Replacing the old split of "one
+// single-item form up top, a separate drag-and-drop batch zone below" with
+// this single zone removes the confusing duplication: there is now only
+// one place to add anything, whether it's one file or fifty.
+function AddZone({ kind, categories, defaultGender, defaultAgeRange, onConfirm, allTags, onAddTag }) {
   const [staged, setStaged] = useState([]);
   const [dragOver, setDragOver] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -162,20 +187,24 @@ function BulkImportZone({ kind, categories, defaultGender, defaultAgeRange, onCo
   }
 
   return (
-    <div style={{ marginTop: 18 }}>
+    <div>
       <div
         onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
         onDragLeave={() => setDragOver(false)}
         onDrop={(e) => { e.preventDefault(); setDragOver(false); addFiles(e.dataTransfer.files); }}
         onClick={() => fileInputRef.current && fileInputRef.current.click()}
         style={{
-          border: `2px dashed ${dragOver ? '#E6C858' : '#C9C5B9'}`, borderRadius: 12, padding: '22px 16px',
+          border: `2px dashed ${dragOver ? '#E6C858' : '#C9C5B9'}`, borderRadius: 12, padding: '30px 16px',
           textAlign: 'center', cursor: 'pointer', background: dragOver ? 'rgba(230,200,88,.08)' : '#FFFFFF',
           transition: 'background .15s ease, border-color .15s ease',
         }}
       >
-        <div style={{ fontSize: 13, fontWeight: 600, color: '#1D1D1D' }}>Sleep audiobestanden hierheen</div>
-        <div style={{ fontSize: 12, color: '#8C8880', marginTop: 4 }}>of klik om te bladeren — meerdere bestanden tegelijk toegestaan</div>
+        <div style={{ fontSize: 14, fontWeight: 600, color: '#1D1D1D' }}>
+          Sleep {kind === 'music' ? 'muziekbestanden' : 'stem-audio'} hierheen
+        </div>
+        <div style={{ fontSize: 12.5, color: '#8C8880', marginTop: 4 }}>
+          of klik om te bladeren — kies één bestand of meerdere tegelijk, allebei werkt hier
+        </div>
         <input
           ref={fileInputRef}
           type="file"
@@ -189,7 +218,7 @@ function BulkImportZone({ kind, categories, defaultGender, defaultAgeRange, onCo
       {staged.length > 0 && (
         <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
           <div style={{ fontSize: 12.5, fontWeight: 600, color: '#5C5850' }}>
-            {staged.length} bestand{staged.length === 1 ? '' : 'en'} klaar om te importeren — controleer de velden hieronder:
+            {staged.length} bestand{staged.length === 1 ? '' : 'en'} klaar om toe te voegen — controleer de velden hieronder:
           </div>
           {staged.map((it) => (
             <div key={it.localId} style={{ background: '#FFFFFF', border: '1px solid #EEECE3', borderRadius: 10, padding: '12px 14px' }}>
@@ -234,7 +263,7 @@ function BulkImportZone({ kind, categories, defaultGender, defaultAgeRange, onCo
             {busy && (
               <span style={{ width: 13, height: 13, borderRadius: '50%', border: '2px solid rgba(29,29,29,.25)', borderTopColor: '#1D1D1D', display: 'inline-block', animation: 'tfa-spin .7s linear infinite' }} />
             )}
-            {busy ? 'Bezig met importeren…' : `Importeer alles (${staged.length})`}
+            {busy ? 'Bezig met toevoegen…' : `Voeg toe aan bibliotheek (${staged.length})`}
           </button>
         </div>
       )}
@@ -242,14 +271,238 @@ function BulkImportZone({ kind, categories, defaultGender, defaultAgeRange, onCo
   );
 }
 
+function TrackRow({ track, categories, selected, onToggleSelect }) {
+  const [editing, setEditing] = useState(false);
+
+  if (editing) {
+    return (
+      <form action={updateTrackAction.bind(null, track.id)} style={{ ...cardStyle, background: '#FFFFFF', border: '1.5px solid #C9C5B9' }} className="tfa-lib-form">
+        <CloseOnSaved onSaved={() => setEditing(false)} />
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 8 }} className="tfa-lib-grid">
+          <input name="title" type="text" defaultValue={track.title} placeholder="Titel" required />
+          <input name="artist" type="text" defaultValue={track.artist} placeholder="Artiest" />
+          <select name="category" defaultValue={track.category}>
+            {categories.map((c) => <option key={c} value={c}>{c}</option>)}
+          </select>
+          <input name="fileId" type="text" defaultValue={track.fileId} placeholder="File ID (optioneel)" />
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 10 }}>
+          <input name="audioFile" type="file" accept="audio/*" style={{ flex: 1, fontSize: 12.5 }} />
+          <span style={{ fontSize: 11, color: '#8C8880', whiteSpace: 'nowrap' }}>
+            {track.audioUrl ? 'Laat leeg om huidige audio te behouden' : 'Nog geen audio geüpload'}
+          </span>
+        </div>
+        <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+          <SubmitButton label="Opslaan" pendingLabel="Bezig met opslaan…" />
+          <button type="button" onClick={() => setEditing(false)} className="ghost-btn" style={{ width: 'auto', padding: '10px 16px' }}>
+            Annuleren
+          </button>
+        </div>
+      </form>
+    );
+  }
+
+  return (
+    <div style={rowStyle}>
+      <input type="checkbox" checked={selected} onChange={() => onToggleSelect(track.id)} style={{ width: 16, height: 16, accentColor: '#E6C858', cursor: 'pointer', flex: 'none' }} />
+      <div style={{ flex: 1, minWidth: 160 }}>
+        <div style={{ fontSize: 13.5, fontWeight: 600 }}>{track.title}</div>
+        <div style={{ fontSize: 12, color: '#8C8880' }}>
+          {track.artist} · {track.category}{track.fileId ? ` · ID: ${track.fileId}` : ''}
+        </div>
+      </div>
+      {track.audioUrl ? (
+        <audio controls src={track.audioUrl} style={{ height: 32, maxWidth: 220 }} />
+      ) : (
+        <div style={{ fontSize: 11.5, color: '#B9B6AC', fontStyle: 'italic' }}>Geen audio geüpload</div>
+      )}
+      <button type="button" onClick={() => setEditing(true)} style={{ border: '1px solid #C9C5B9', background: '#FFFFFF', color: '#1D1D1D', cursor: 'pointer', fontSize: 12, borderRadius: 8, padding: '7px 12px' }}>
+        Bewerken
+      </button>
+      <form action={removeTrackAction.bind(null, track.id)}>
+        <button
+          type="submit"
+          onClick={confirmDelete(`Weet je zeker dat je "${track.title || 'deze track'}" wilt verwijderen? Dit kan niet ongedaan worden gemaakt.`)}
+          style={{ border: 'none', background: 'transparent', color: '#C2513F', cursor: 'pointer', fontSize: 12 }}
+        >
+          Verwijderen
+        </button>
+      </form>
+    </div>
+  );
+}
+
+function VoiceRow({ voice, allTags, onAddTag, selected, onToggleSelect }) {
+  const [editing, setEditing] = useState(false);
+  const [editTags, setEditTags] = useState(voice.tags || []);
+
+  if (editing) {
+    return (
+      <form action={updateVoiceAction.bind(null, voice.id)} style={{ ...cardStyle, background: '#FFFFFF', border: '1.5px solid #C9C5B9' }} className="tfa-lib-form">
+        <CloseOnSaved onSaved={() => setEditing(false)} />
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 2fr 1fr', gap: 8 }} className="tfa-lib-grid">
+          <input name="name" type="text" defaultValue={voice.name} placeholder="Naam" required />
+          <select name="gender" defaultValue={voice.gender}>
+            <option value="vrouw">Vrouw</option>
+            <option value="man">Man</option>
+          </select>
+          <select name="ageRange" defaultValue={voice.ageRange}>
+            <option value="18-34">18–34</option>
+            <option value="35-54">35–54</option>
+            <option value="55+">55+</option>
+          </select>
+          <TagPicker allTags={allTags} selected={editTags} onChange={setEditTags} onAddTag={onAddTag} />
+          <input name="fileId" type="text" defaultValue={voice.fileId} placeholder="File ID (optioneel)" />
+        </div>
+        <input type="hidden" name="tags" value={editTags.join(',')} readOnly />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 10 }}>
+          <input name="audioFile" type="file" accept="audio/*" style={{ flex: 1, fontSize: 12.5 }} />
+          <span style={{ fontSize: 11, color: '#8C8880', whiteSpace: 'nowrap' }}>
+            {voice.audioUrl ? 'Laat leeg om huidige audio te behouden' : 'Nog geen audio geüpload'}
+          </span>
+        </div>
+        <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+          <SubmitButton label="Opslaan" pendingLabel="Bezig met opslaan…" />
+          <button type="button" onClick={() => setEditing(false)} className="ghost-btn" style={{ width: 'auto', padding: '10px 16px' }}>
+            Annuleren
+          </button>
+        </div>
+      </form>
+    );
+  }
+
+  return (
+    <div style={rowStyle}>
+      <input type="checkbox" checked={selected} onChange={() => onToggleSelect(voice.id)} style={{ width: 16, height: 16, accentColor: '#E6C858', cursor: 'pointer', flex: 'none' }} />
+      <div style={{ flex: 1, minWidth: 160 }}>
+        <div style={{ fontSize: 13.5, fontWeight: 600 }}>{voice.name}</div>
+        <div style={{ fontSize: 12, color: '#8C8880' }}>
+          {voice.gender} · {voice.ageRange} · {(voice.tags || []).join(', ')}{voice.fileId ? ` · ID: ${voice.fileId}` : ''}
+        </div>
+      </div>
+      {voice.audioUrl ? (
+        <audio controls src={voice.audioUrl} style={{ height: 32, maxWidth: 220 }} />
+      ) : (
+        <div style={{ fontSize: 11.5, color: '#B9B6AC', fontStyle: 'italic' }}>Geen audio geüpload</div>
+      )}
+      <button type="button" onClick={() => setEditing(true)} style={{ border: '1px solid #C9C5B9', background: '#FFFFFF', color: '#1D1D1D', cursor: 'pointer', fontSize: 12, borderRadius: 8, padding: '7px 12px' }}>
+        Bewerken
+      </button>
+      <form action={removeVoiceAction.bind(null, voice.id)}>
+        <button
+          type="submit"
+          onClick={confirmDelete(`Weet je zeker dat je "${voice.name || 'deze stem'}" wilt verwijderen? Dit kan niet ongedaan worden gemaakt.`)}
+          style={{ border: 'none', background: 'transparent', color: '#C2513F', cursor: 'pointer', fontSize: 12 }}
+        >
+          Verwijderen
+        </button>
+      </form>
+    </div>
+  );
+}
+
+// The browse/manage view: search, select-all, bulk delete, and the list
+// itself — kept separate from AddZone so "adding new stuff" and "managing
+// what's already there" read as two distinct tools instead of one long,
+// blurred scroll.
+function BrowsePanel({ kind, items, categories, allTags, onAddTag, selectedIds, setSelectedIds, onBulkDelete, bulkBusy, query, setQuery }) {
+  const filtered = items.filter((it) => {
+    const q = query.trim().toLowerCase();
+    if (!q) return true;
+    const haystack = kind === 'music'
+      ? [it.title, it.artist, it.category].join(' ')
+      : [it.name, it.gender, it.ageRange, (it.tags || []).join(' ')].join(' ');
+    return haystack.toLowerCase().includes(q);
+  });
+  const allVisibleSelected = filtered.length > 0 && filtered.every((it) => selectedIds.has(it.id));
+
+  function toggleSelectAll() {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (allVisibleSelected) filtered.forEach((it) => next.delete(it.id));
+      else filtered.forEach((it) => next.add(it.id));
+      return next;
+    });
+  }
+
+  function toggleOne(id) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  return (
+    <div>
+      <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', marginBottom: 14 }}>
+        <input
+          type="text"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder={kind === 'music' ? 'Zoek op titel, artiest of categorie…' : 'Zoek op naam, tag, leeftijd…'}
+          style={{ flex: '1 1 240px', minWidth: 200, border: '1px solid #C9C5B9', borderRadius: 8, padding: '9px 12px', fontSize: 13, background: '#FFFFFF' }}
+        />
+        <label style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 12.5, color: '#5C5850', cursor: filtered.length ? 'pointer' : 'default' }}>
+          <input type="checkbox" checked={allVisibleSelected} disabled={!filtered.length} onChange={toggleSelectAll} style={{ width: 15, height: 15, accentColor: '#E6C858', cursor: 'pointer' }} />
+          Selecteer alles
+        </label>
+        <span style={{ fontSize: 12.5, color: '#8C8880' }}>{selectedIds.size} geselecteerd</span>
+        <button
+          type="button"
+          disabled={selectedIds.size === 0 || bulkBusy}
+          onClick={onBulkDelete}
+          style={{
+            marginLeft: 'auto', border: 'none', borderRadius: 8, padding: '9px 14px', fontSize: 12.5, fontWeight: 600,
+            background: selectedIds.size === 0 ? '#EAE7DE' : '#C2513F', color: selectedIds.size === 0 ? '#8C8880' : '#FFFFFF',
+            cursor: selectedIds.size === 0 || bulkBusy ? 'not-allowed' : 'pointer', opacity: bulkBusy ? 0.7 : 1,
+          }}
+        >
+          {bulkBusy ? 'Bezig met verwijderen…' : `Verwijder geselecteerde (${selectedIds.size})`}
+        </button>
+      </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {filtered.map((it) => (
+          kind === 'music' ? (
+            <TrackRow key={it.id} track={it} categories={categories} selected={selectedIds.has(it.id)} onToggleSelect={toggleOne} />
+          ) : (
+            <VoiceRow key={it.id} voice={it} allTags={allTags} onAddTag={onAddTag} selected={selectedIds.has(it.id)} onToggleSelect={toggleOne} />
+          )
+        ))}
+        {filtered.length === 0 && items.length > 0 && (
+          <div style={{ fontSize: 13, color: '#8C8880' }}>Niets gevonden voor "{query}".</div>
+        )}
+        {items.length === 0 && (
+          <div style={{ fontSize: 13, color: '#8C8880' }}>
+            {kind === 'music' ? 'Nog geen tracks — ga naar "Toevoegen" om er een paar toe te voegen.' : 'Nog geen stemmen — ga naar "Toevoegen" om er een paar toe te voegen.'}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function LibraryClient({ tracks, voices, categories, defaultTags }) {
   const [tab, setTab] = useState('music');
+  // Shared across both Muziek/Stemmen tabs: "Bibliotheek" (browse/manage
+  // what's already there) is its own separate screen from "Toevoegen" (the
+  // drag-and-drop import tool), instead of one long page mixing both.
+  const [view, setView] = useState('browse');
+
   const [knownTags, setKnownTags] = useState(() => {
     const set = new Set(defaultTags || []);
     (voices || []).forEach((v) => (v.tags || []).forEach((t) => set.add(t)));
     return Array.from(set);
   });
-  const [selectedTags, setSelectedTags] = useState([]);
+
+  const [trackQuery, setTrackQuery] = useState('');
+  const [voiceQuery, setVoiceQuery] = useState('');
+  const [selectedTrackIds, setSelectedTrackIds] = useState(() => new Set());
+  const [selectedVoiceIds, setSelectedVoiceIds] = useState(() => new Set());
+  const [bulkBusyTracks, setBulkBusyTracks] = useState(false);
+  const [bulkBusyVoices, setBulkBusyVoices] = useState(false);
 
   function addKnownTag(tag) {
     setKnownTags((cur) => (cur.includes(tag) ? cur : [...cur, tag]));
@@ -266,6 +519,7 @@ export default function LibraryClient({ tracks, voices, categories, defaultTags 
       formData.set(`track_${i}_audioFile`, it.file);
     });
     await addTracksBulkAction(formData);
+    setView('browse');
   }
 
   async function confirmVoicesBulk(staged) {
@@ -280,11 +534,40 @@ export default function LibraryClient({ tracks, voices, categories, defaultTags 
       formData.set(`voice_${i}_audioFile`, it.file);
     });
     await addVoicesBulkAction(formData);
+    setView('browse');
+  }
+
+  async function deleteSelectedTracks() {
+    if (selectedTrackIds.size === 0) return;
+    if (!window.confirm(`Weet je zeker dat je ${selectedTrackIds.size} track(s) wilt verwijderen? Dit kan niet ongedaan worden gemaakt.`)) return;
+    setBulkBusyTracks(true);
+    try {
+      const formData = new FormData();
+      selectedTrackIds.forEach((id) => formData.append('id', id));
+      await removeTracksBulkAction(formData);
+      setSelectedTrackIds(new Set());
+    } finally {
+      setBulkBusyTracks(false);
+    }
+  }
+
+  async function deleteSelectedVoices() {
+    if (selectedVoiceIds.size === 0) return;
+    if (!window.confirm(`Weet je zeker dat je ${selectedVoiceIds.size} stem(men) wilt verwijderen? Dit kan niet ongedaan worden gemaakt.`)) return;
+    setBulkBusyVoices(true);
+    try {
+      const formData = new FormData();
+      selectedVoiceIds.forEach((id) => formData.append('id', id));
+      await removeVoicesBulkAction(formData);
+      setSelectedVoiceIds(new Set());
+    } finally {
+      setBulkBusyVoices(false);
+    }
   }
 
   return (
     <div>
-      <div style={{ display: 'flex', gap: 8, marginBottom: 22 }}>
+      <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
         <button
           type="button"
           onClick={() => setTab('music')}
@@ -301,99 +584,64 @@ export default function LibraryClient({ tracks, voices, categories, defaultTags 
         </button>
       </div>
 
+      <div style={{ display: 'flex', gap: 6, marginBottom: 20, borderBottom: '1px solid #DBD7CC' }}>
+        <button
+          type="button"
+          onClick={() => setView('browse')}
+          style={{
+            border: 'none', background: 'transparent', cursor: 'pointer', padding: '8px 4px', marginRight: 18,
+            fontSize: 13.5, fontWeight: 600, color: view === 'browse' ? '#1D1D1D' : '#8C8880',
+            borderBottom: view === 'browse' ? '2px solid #E6C858' : '2px solid transparent',
+          }}
+        >
+          Bibliotheek {tab === 'music' ? `(${tracks.length})` : `(${voices.length})`}
+        </button>
+        <button
+          type="button"
+          onClick={() => setView('add')}
+          style={{
+            border: 'none', background: 'transparent', cursor: 'pointer', padding: '8px 4px',
+            fontSize: 13.5, fontWeight: 600, color: view === 'add' ? '#1D1D1D' : '#8C8880',
+            borderBottom: view === 'add' ? '2px solid #E6C858' : '2px solid transparent',
+          }}
+        >
+          + Toevoegen
+        </button>
+      </div>
+
       {tab === 'music' ? (
-        <div>
-          <form action={addTrackAction} style={cardStyle} className="tfa-lib-form">
-            <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 10 }}>Nieuwe track toevoegen</div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 10 }} className="tfa-lib-grid">
-              <input name="title" type="text" placeholder="Titel" required />
-              <input name="artist" type="text" placeholder="Artiest" />
-              <select name="category" defaultValue={categories[0]}>
-                {categories.map((c) => (
-                  <option key={c} value={c}>{c}</option>
-                ))}
-              </select>
-              <input name="fileId" type="text" placeholder="File ID (optioneel)" />
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 10 }}>
-              <input name="audioFile" type="file" accept="audio/*" style={{ flex: 1, fontSize: 12.5 }} />
-              <SubmitButton label="Toevoegen" pendingLabel="Bezig met uploaden…" />
-            </div>
-          </form>
-
-          <BulkImportZone kind="music" categories={categories} onConfirm={confirmTracksBulk} />
-
-          <div style={{ marginTop: 18, display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {tracks.map((t) => (
-              <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 12, background: '#FFFFFF', borderRadius: 10, padding: '10px 14px', boxShadow: '0 1px 6px rgba(29,29,29,.04)', flexWrap: 'wrap' }}>
-                <div style={{ flex: 1, minWidth: 160 }}>
-                  <div style={{ fontSize: 13.5, fontWeight: 600 }}>{t.title}</div>
-                  <div style={{ fontSize: 12, color: '#8C8880' }}>
-                    {t.artist} · {t.category}{t.fileId ? ` · ID: ${t.fileId}` : ''}
-                  </div>
-                </div>
-                {t.audioUrl ? (
-                  <audio controls src={t.audioUrl} style={{ height: 32, maxWidth: 220 }} />
-                ) : (
-                  <div style={{ fontSize: 11.5, color: '#B9B6AC', fontStyle: 'italic' }}>Geen audio geüpload</div>
-                )}
-                <form action={removeTrackAction.bind(null, t.id)}>
-                  <button type="submit" style={{ border: 'none', background: 'transparent', color: '#C2513F', cursor: 'pointer', fontSize: 12 }}>Verwijderen</button>
-                </form>
-              </div>
-            ))}
-            {tracks.length === 0 && <div style={{ fontSize: 13, color: '#8C8880' }}>Nog geen tracks.</div>}
-          </div>
-        </div>
+        view === 'add' ? (
+          <AddZone kind="music" categories={categories} onConfirm={confirmTracksBulk} />
+        ) : (
+          <BrowsePanel
+            kind="music"
+            items={tracks}
+            categories={categories}
+            selectedIds={selectedTrackIds}
+            setSelectedIds={setSelectedTrackIds}
+            onBulkDelete={deleteSelectedTracks}
+            bulkBusy={bulkBusyTracks}
+            query={trackQuery}
+            setQuery={setTrackQuery}
+          />
+        )
       ) : (
-        <div>
-          <form action={addVoiceAction} style={cardStyle} className="tfa-lib-form">
-            <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 10 }}>Nieuwe stem toevoegen</div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 2fr 1fr', gap: 10 }} className="tfa-lib-grid">
-              <input name="name" type="text" placeholder="Naam" required />
-              <select name="gender" defaultValue="vrouw">
-                <option value="vrouw">Vrouw</option>
-                <option value="man">Man</option>
-              </select>
-              <select name="ageRange" defaultValue="35-54">
-                <option value="18-34">18–34</option>
-                <option value="35-54">35–54</option>
-                <option value="55+">55+</option>
-              </select>
-              <TagPicker allTags={knownTags} selected={selectedTags} onChange={setSelectedTags} onAddTag={addKnownTag} />
-              <input name="fileId" type="text" placeholder="File ID (optioneel)" />
-            </div>
-            <input type="hidden" name="tags" value={selectedTags.join(',')} readOnly />
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 10 }}>
-              <input name="audioFile" type="file" accept="audio/*" style={{ flex: 1, fontSize: 12.5 }} />
-              <SubmitButton label="Toevoegen" pendingLabel="Bezig met uploaden…" />
-            </div>
-          </form>
-
-          <BulkImportZone kind="voice" defaultGender="vrouw" defaultAgeRange="35-54" onConfirm={confirmVoicesBulk} allTags={knownTags} onAddTag={addKnownTag} />
-
-          <div style={{ marginTop: 18, display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {voices.map((v) => (
-              <div key={v.id} style={{ display: 'flex', alignItems: 'center', gap: 12, background: '#FFFFFF', borderRadius: 10, padding: '10px 14px', boxShadow: '0 1px 6px rgba(29,29,29,.04)', flexWrap: 'wrap' }}>
-                <div style={{ flex: 1, minWidth: 160 }}>
-                  <div style={{ fontSize: 13.5, fontWeight: 600 }}>{v.name}</div>
-                  <div style={{ fontSize: 12, color: '#8C8880' }}>
-                    {v.gender} · {v.ageRange} · {v.tags.join(', ')}{v.fileId ? ` · ID: ${v.fileId}` : ''}
-                  </div>
-                </div>
-                {v.audioUrl ? (
-                  <audio controls src={v.audioUrl} style={{ height: 32, maxWidth: 220 }} />
-                ) : (
-                  <div style={{ fontSize: 11.5, color: '#B9B6AC', fontStyle: 'italic' }}>Geen audio geüpload</div>
-                )}
-                <form action={removeVoiceAction.bind(null, v.id)}>
-                  <button type="submit" style={{ border: 'none', background: 'transparent', color: '#C2513F', cursor: 'pointer', fontSize: 12 }}>Verwijderen</button>
-                </form>
-              </div>
-            ))}
-            {voices.length === 0 && <div style={{ fontSize: 13, color: '#8C8880' }}>Nog geen stemmen.</div>}
-          </div>
-        </div>
+        view === 'add' ? (
+          <AddZone kind="voice" defaultGender="vrouw" defaultAgeRange="35-54" onConfirm={confirmVoicesBulk} allTags={knownTags} onAddTag={addKnownTag} />
+        ) : (
+          <BrowsePanel
+            kind="voice"
+            items={voices}
+            allTags={knownTags}
+            onAddTag={addKnownTag}
+            selectedIds={selectedVoiceIds}
+            setSelectedIds={setSelectedVoiceIds}
+            onBulkDelete={deleteSelectedVoices}
+            bulkBusy={bulkBusyVoices}
+            query={voiceQuery}
+            setQuery={setVoiceQuery}
+          />
+        )
       )}
 
       <style>{`

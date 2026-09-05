@@ -13,7 +13,7 @@ export default function DeliveryPage({ params }) {
   const { id } = params;
   const router = useRouter();
   const { brief, loading, saveState, schedulePatch, flushPending, patch } = useBrief(id);
-  const showLoader = useMinDelay(loading, 4000);
+  const showLoader = useMinDelay(loading, 2000);
   const [form, setForm] = useState({
     hoofdspotLength: '20',
     needsVariations: null,
@@ -100,7 +100,7 @@ export default function DeliveryPage({ params }) {
           Dezelfde commercial, maar met bijvoorbeeld een ander product, filiaal of woord — geen aparte, kortere versie. Wat er
           precies moet verschillen vragen we je pas zodra je het script hebt goedgekeurd.
         </div>
-        <div style={{ display: 'flex', gap: 6, maxWidth: 340 }}>
+        <div style={{ display: 'flex', gap: 6 }}>
           <button type="button" className={'seg-btn' + (form.needsVariations === true ? ' selected' : '')} onClick={() => update({ needsVariations: true })}>Ja</button>
           <button type="button" className={'seg-btn' + (form.needsVariations === false ? ' selected' : '')} onClick={() => update({ needsVariations: false })}>Nee</button>
         </div>
@@ -111,7 +111,7 @@ export default function DeliveryPage({ params }) {
         <b>{summaryParts.join(' + ')}</b>
       </div>
 
-      <div style={{ marginTop: 24, maxWidth: 360 }}>
+      <div style={{ marginTop: 24 }}>
         <label className="field-label">Eerste uitzenddatum</label>
         <input
           type="date"

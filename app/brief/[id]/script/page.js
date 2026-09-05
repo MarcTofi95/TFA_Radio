@@ -6,6 +6,7 @@ import StepShell from '../../../../components/StepShell';
 import Preloader from '../../../../components/Preloader';
 import useMinDelay from '../../../../components/useMinDelay';
 import { TONE_LABELS, estimateSeconds, wordCountOf } from '../../../../components/flowData';
+import { diffWords, DiffText } from '../../../../components/textDiff';
 
 const DEFAULT_DISCLAIMER = 'Nog geen verplichte tekst ontvangen — deze verschijnt hier zodra ingevuld in de brief.';
 // Mirrors lib/db.js's MAX_SCRIPT_HISTORY — how many script generations a
@@ -36,16 +37,13 @@ export default function ScriptPage({ params }) {
   const [genError, setGenError] = useState(null); // { message, debugId } | null
   const [selectingVersionId, setSelectingVersionId] = useState(null);
   const [firstLoadDone, setFirstLoadDone] = useState(false);
-  const showLoader = useMinDelay(!firstLoadDone, 4000);
+  const showLoader = useMinDelay(!firstLoadDone, 2000);
   const [scriptText, setScriptText] = useState('');
   const [varText, setVarText] = useState('');
-  const [variationDetail, setVariationDetail] = useState('');
   const scriptFocused = useRef(false);
   const varFocused = useRef(false);
-  const detailFocused = useRef(false);
   const saveTimer = useRef(null);
   const varSaveTimer = useRef(null);
-  const detailSaveTimer = useRef(null);
 
   const fetchBrief = useCallback(async () => {
     try {
@@ -107,7 +105,7 @@ export default function ScriptPage({ params }) {
       setFirstLoadDone(true);
     })();
     const interval = setInterval(async () => {
-      if (scriptFocused.current || varFocused.current || detailFocused.current) return;
+      if (scriptFocused.current || varFocused.current) return;
       await fetchBrief();
     }, 2000);
     return () => {
@@ -126,7 +124,6 @@ export default function ScriptPage({ params }) {
     const defaultVarText = text || '';
     const vText = brief.editedVarScript !== null && brief.editedVarScript !== undefined ? brief.editedVarScript : defaultVarText;
     if (!varFocused.current) setVarText(vText);
-    if (!detailFocused.current) setVariationDetail(brief.variationDetail || '');
   }, [brief]);
 
   function scheduleEditSave(field, value) {
@@ -169,18 +166,6 @@ export default function ScriptPage({ params }) {
     setBrief((b) => (b ? { ...b, editedVarScript: null } : b));
   }
 
-  function onVariationDetailChange(e) {
-    setVariationDetail(e.target.value);
-    clearTimeout(detailSaveTimer.current);
-    detailSaveTimer.current = setTimeout(() => {
-      fetch(`/api/briefs/${id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ variationDetail: e.target.value }),
-      }).catch(() => {});
-    }, 350);
-  }
-
   async function approveAndContinue() {
     if (!brief || !brief.generatedScript) return;
     clearTimeout(saveTimer.current);
@@ -218,7 +203,6 @@ export default function ScriptPage({ params }) {
 
   async function continueToVoice() {
     clearTimeout(varSaveTimer.current);
-    clearTimeout(detailSaveTimer.current);
     try {
       await fetch(`/api/briefs/${id}/edit`, {
         method: 'PATCH',
@@ -461,17 +445,17 @@ export default function ScriptPage({ params }) {
             onBlur={() => { varFocused.current = false; }}
             onChange={onVarChange}
           />
-          <div style={{ marginTop: 14, maxWidth: 460 }}>
-            <label className="field-label">Wat is het verschil in deze variatie? <span style={{ color: '#8C8880', fontWeight: 400 }}>(optioneel)</span></label>
-            <input
-              type="text"
-              value={variationDetail}
-              placeholder="Bijv. 'filiaal Utrecht i.p.v. Amsterdam'"
-              onFocus={() => { detailFocused.current = true; }}
-              onBlur={() => { detailFocused.current = false; }}
-              onChange={onVariationDetailChange}
-            />
-            <div className="hint" style={{ marginTop: 5 }}>Een korte omschrijving voor TFA erbij — dit past de tekst hierboven niet automatisch aan.</div>
+          <div style={{ marginTop: 14 }}>
+            <label className="field-label">Wat is er veranderd?</label>
+            {varUnchanged ? (
+              <div className="hint">
+                Nog geen wijzigingen — pas de tekst hierboven aan op het punt waar deze variatie moet verschillen van je hoofdscript.
+              </div>
+            ) : (
+              <div style={{ background: '#FBF9EC', border: '1px solid #EAE3C4', borderRadius: 10, padding: '12px 14px', fontSize: 13.5, lineHeight: 1.65, color: '#1D1D1D' }}>
+                <DiffText tokens={diffWords(scriptText, varText)} />
+              </div>
+            )}
           </div>
           <div style={{ marginTop: 10 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11.5, color: '#5C5850' }}>

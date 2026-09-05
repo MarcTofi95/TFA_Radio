@@ -21,7 +21,7 @@ export default function VoicePage({ params }) {
   const { id } = params;
   const router = useRouter();
   const { brief, loading, saveState, schedulePatch, flushPending, patch } = useBrief(id);
-  const showLoader = useMinDelay(loading, 4000);
+  const showLoader = useMinDelay(loading, 2000);
   const [form, setForm] = useState({ voiceGender: '', voiceAgeRange: '', voiceStyleTags: [], voiceNote: '', selectedVoiceId: '' });
   const [phase, setPhase] = useState('questions');
   const [playingId, setPlayingId] = useState(null);
@@ -193,7 +193,7 @@ export default function VoicePage({ params }) {
           </p>
           <div style={{ marginTop: 10 }}>
             <label className="field-label">Geslacht van de stem</label>
-            <div style={{ display: 'flex', gap: 6, maxWidth: 460 }}>
+            <div style={{ display: 'flex', gap: 6 }}>
               {[['man', 'Man'], ['vrouw', 'Vrouw'], ['geen-voorkeur', 'Geen voorkeur']].map(([v, label]) => (
                 <button key={v} type="button" className={'seg-btn' + (form.voiceGender === v ? ' selected' : '')} onClick={() => update({ voiceGender: form.voiceGender === v ? '' : v })}>{label}</button>
               ))}
@@ -201,7 +201,7 @@ export default function VoicePage({ params }) {
           </div>
           <div style={{ marginTop: 18 }}>
             <label className="field-label">Leeftijd van de stem</label>
-            <div style={{ display: 'flex', gap: 6, maxWidth: 460 }}>
+            <div style={{ display: 'flex', gap: 6 }}>
               {Object.entries(AGE_LABELS).map(([v, label]) => (
                 <button key={v} type="button" className={'seg-btn' + (form.voiceAgeRange === v ? ' selected' : '')} onClick={() => update({ voiceAgeRange: form.voiceAgeRange === v ? '' : v })}>{label}</button>
               ))}
@@ -219,7 +219,7 @@ export default function VoicePage({ params }) {
               ))}
             </div>
           </div>
-          <div style={{ marginTop: 18, maxWidth: 520 }}>
+          <div style={{ marginTop: 18 }}>
             <label className="field-label">Nog iets dat we moeten weten? <span style={{ color: '#8C8880', fontWeight: 400 }}>(optioneel)</span></label>
             <textarea style={{ minHeight: 64 }} value={form.voiceNote} placeholder="Bijv. 'geen kinderstem'" onChange={(e) => update({ voiceNote: e.target.value })} />
           </div>
