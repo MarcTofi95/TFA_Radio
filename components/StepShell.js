@@ -154,11 +154,16 @@ export default function StepShell({ briefId, current, brief, subtitle, bigNum, k
           {STEPS.map((step) => {
             const isCurrent = step.n === current;
             const isDone = !isCurrent && (step.n < current || !!reached[step.n]);
+            // Background/border-left are only set inline for the CURRENT
+            // step. For every other row they're left to the "tfa-step-item"
+            // CSS class below instead of being inlined as 'transparent' —
+            // an inline style always wins over a stylesheet :hover rule for
+            // the same property, so inlining 'transparent' here was silently
+            // cancelling out the hover highlight on every clickable step.
             const rowStyle = {
               display: 'flex', alignItems: 'center', gap: 10, padding: isCurrent ? '10px 12px' : '9px 10px',
-              borderLeft: isCurrent ? '2px solid #E6C858' : '2px solid transparent',
-              background: isCurrent ? 'rgba(230,200,88,.10)' : 'transparent',
               borderRadius: '0 6px 6px 0', textDecoration: 'none', cursor: isDone ? 'pointer' : 'default',
+              ...(isCurrent ? { borderLeft: '2px solid #E6C858', background: 'rgba(230,200,88,.10)' } : null),
             };
             const numColor = isCurrent || isDone ? '#E6C858' : '#77746A';
             const labelStyle = isCurrent
@@ -175,13 +180,13 @@ export default function StepShell({ briefId, current, brief, subtitle, bigNum, k
             );
             if (isDone && briefId) {
               return (
-                <Link key={step.n} href={`/brief/${briefId}/${step.path}`} style={rowStyle} className="tfa-step-row">
+                <Link key={step.n} href={`/brief/${briefId}/${step.path}`} style={rowStyle} className="tfa-step-item tfa-step-row">
                   {inner}
                 </Link>
               );
             }
             return (
-              <div key={step.n} style={rowStyle}>
+              <div key={step.n} style={rowStyle} className="tfa-step-item">
                 {inner}
               </div>
             );
@@ -273,12 +278,17 @@ export default function StepShell({ briefId, current, brief, subtitle, bigNum, k
             padding: 32px 24px;
           }
         }
+        .tfa-step-item {
+          background: transparent;
+          border-left: 2px solid transparent;
+        }
         .tfa-step-row {
-          transition: background .14s ease, transform .14s ease;
+          transition: background .14s ease, border-color .14s ease, transform .14s ease;
         }
         .tfa-step-row:hover {
-          background: rgba(230, 200, 88, 0.14);
-          transform: translateX(2px);
+          background: rgba(230, 200, 88, 0.28) !important;
+          border-left-color: #E6C858 !important;
+          transform: translateX(4px);
         }
       `}</style>
     </div>

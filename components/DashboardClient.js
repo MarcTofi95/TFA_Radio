@@ -174,7 +174,11 @@ export default function DashboardClient({ briefs }) {
 
   const cardStyle = { background: '#FFFFFF', borderRadius: 14, padding: '20px 22px', boxShadow: '0 1px 10px rgba(29,29,29,.05)' };
   const modalCardStyle = { background: '#FBF9EC', border: '1.5px solid #EAE3C4', borderLeft: '4px solid #E6C858', borderRadius: '4px 14px 14px 4px', padding: '14px 16px' };
-  function tileStyle(status, accent) {
+  // Active tile always highlights in the brand's gold, regardless of that
+  // status's own accent color (used only for its number/label) — one
+  // consistent "this is the active filter" signal instead of a color that
+  // changes depending on which tile you clicked.
+  function tileStyle(status) {
     const active = statusFilter === status;
     return {
       ...cardStyle,
@@ -183,8 +187,10 @@ export default function DashboardClient({ briefs }) {
       width: '100%',
       font: 'inherit',
       color: 'inherit',
-      border: active ? `1.5px solid ${accent}` : '1.5px solid transparent',
-      boxShadow: active ? `0 1px 10px ${accent}33` : cardStyle.boxShadow,
+      background: active ? '#FBF0C8' : cardStyle.background,
+      border: active ? '1.5px solid #E6C858' : '1.5px solid transparent',
+      boxShadow: active ? '0 2px 14px rgba(230,200,88,.4)' : cardStyle.boxShadow,
+      transition: 'background .12s ease, border-color .12s ease, box-shadow .12s ease',
     };
   }
 
@@ -211,19 +217,19 @@ export default function DashboardClient({ briefs }) {
           <div style={{ fontSize: 12, color: '#8C8880', textTransform: 'uppercase', letterSpacing: '.04em' }}>Totaal briefs</div>
           <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 32, fontWeight: 600, marginTop: 6 }}>{stats.total}</div>
         </div>
-        <button type="button" onClick={() => toggleStatusFilter('todo')} style={tileStyle('todo', '#5C5850')}>
+        <button type="button" onClick={() => toggleStatusFilter('todo')} style={tileStyle('todo')}>
           <div style={{ fontSize: 12, color: '#8C8880', textTransform: 'uppercase', letterSpacing: '.04em' }}>To-do</div>
           <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 32, fontWeight: 600, marginTop: 6 }}>{stats.todo}</div>
         </button>
-        <button type="button" onClick={() => toggleStatusFilter('pending_customer')} style={tileStyle('pending_customer', '#8C6D1F')}>
+        <button type="button" onClick={() => toggleStatusFilter('pending_customer')} style={tileStyle('pending_customer')}>
           <div style={{ fontSize: 12, color: '#8C8880', textTransform: 'uppercase', letterSpacing: '.04em' }}>Wacht op klant</div>
           <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 32, fontWeight: 600, marginTop: 6, color: '#8C6D1F' }}>{stats.pendingCustomer}</div>
         </button>
-        <button type="button" onClick={() => toggleStatusFilter('in_progress')} style={tileStyle('in_progress', '#1F6F8C')}>
+        <button type="button" onClick={() => toggleStatusFilter('in_progress')} style={tileStyle('in_progress')}>
           <div style={{ fontSize: 12, color: '#8C8880', textTransform: 'uppercase', letterSpacing: '.04em' }}>In behandeling</div>
           <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 32, fontWeight: 600, marginTop: 6, color: '#1F6F8C' }}>{stats.inProgress}</div>
         </button>
-        <button type="button" onClick={() => toggleStatusFilter('done')} style={tileStyle('done', '#1D7A46')}>
+        <button type="button" onClick={() => toggleStatusFilter('done')} style={tileStyle('done')}>
           <div style={{ fontSize: 12, color: '#8C8880', textTransform: 'uppercase', letterSpacing: '.04em' }}>Klaar</div>
           <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 32, fontWeight: 600, marginTop: 6, color: '#1D7A46' }}>{stats.done}</div>
         </button>

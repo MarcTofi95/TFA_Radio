@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { activatePromptVersion, deactivatePromptVersion, revisePromptVersion } from '../../../../../lib/promptVersions';
+import { activatePromptVersion, deactivatePromptVersion, revisePromptVersion, deletePromptVersion } from '../../../../../lib/promptVersions';
 
 export const dynamic = 'force-dynamic';
 
@@ -30,4 +30,12 @@ export async function PATCH(request, { params }) {
     : await deactivatePromptVersion(params.id);
   if (!updated) return NextResponse.json({ error: 'not_found' }, { status: 404 });
   return NextResponse.json(updated);
+}
+
+// Permanently deletes one version. The client confirms with the producer
+// before ever calling this — see PromptVersionsClient's confirmDelete.
+export async function DELETE(request, { params }) {
+  const ok = await deletePromptVersion(params.id);
+  if (!ok) return NextResponse.json({ error: 'not_found' }, { status: 404 });
+  return NextResponse.json({ ok: true });
 }

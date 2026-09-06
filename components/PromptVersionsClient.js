@@ -86,6 +86,21 @@ export default function PromptVersionsClient({ initialVersions }) {
   function cancelEdit() {
     setEditingId(null);
   }
+  async function deleteVersion(v) {
+    if (!window.confirm(`Weet je zeker dat je "${v.label || 'deze versie'}" (v${v.version || '1.0'}) wilt verwijderen? Dit kan niet ongedaan worden gemaakt.`)) return;
+    setBusyId(v.id);
+    setError('');
+    try {
+      const res = await fetch(`/api/dashboard/prompt-versions/${v.id}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('Verwijderen mislukt');
+      await refresh();
+    } catch (err) {
+      setError('Kon de versie niet verwijderen. Probeer het opnieuw.');
+    } finally {
+      setBusyId(null);
+    }
+  }
+
   async function saveEdit(id) {
     if (!editContent.trim()) return;
     setBusyId(id);
@@ -202,6 +217,15 @@ export default function PromptVersionsClient({ initialVersions }) {
                           {busyId === v.id ? 'Bezig...' : 'Maak live'}
                         </button>
                       )}
+                      <button
+                        type="button"
+                        disabled={busyId === v.id}
+                        onClick={() => deleteVersion(v)}
+                        className="tfa-btn-ghost"
+                        style={{ border: '1px solid #C9C5B9', borderRadius: 8, background: '#FFFFFF', padding: '6px 12px', fontSize: 12, cursor: 'pointer', color: '#C2513F', opacity: busyId === v.id ? 0.6 : 1 }}
+                      >
+                        Verwijderen
+                      </button>
                     </>
                   )}
                 </div>
