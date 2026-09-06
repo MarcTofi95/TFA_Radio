@@ -47,6 +47,14 @@ export default function ScriptPage({ params }) {
   const varFocused = useRef(false);
   const saveTimer = useRef(null);
   const varSaveTimer = useRef(null);
+  // Set the instant an edit is made, cleared only once the debounced PATCH
+  // for it actually resolves. Blur clears *Focused immediately, but the
+  // save itself is still debounced 350ms behind it — without this, a poll
+  // landing in that window would overwrite the textarea with the
+  // not-yet-saved server value, which looks exactly like the client's edit
+  // was silently discarded.
+  const scriptSavePending = useRef(false);
+  const varSavePending = useRef(false);
 
   const fetchBrief = useCallback(async () => {
     try {
@@ -123,21 +131,27 @@ export default function ScriptPage({ params }) {
     if (!brief) return;
     const generatedText = brief.generatedScript || '';
     const text = brief.editedScript !== null && brief.editedScript !== undefined ? brief.editedScript : generatedText;
-    if (!scriptFocused.current) setScriptText(text);
+    if (!scriptFocused.current && !scriptSavePending.current) setScriptText(text);
     const defaultVarText = text || '';
     const vText = brief.editedVarScript !== null && brief.editedVarScript !== undefined ? brief.editedVarScript : defaultVarText;
-    if (!varFocused.current) setVarText(vText);
+    if (!varFocused.current && !varSavePending.current) setVarText(vText);
   }, [brief]);
 
   function scheduleEditSave(field, value) {
     const ref = field === 'editedScript' ? saveTimer : varSaveTimer;
+    const pending = field === 'editedScript' ? scriptSavePending : varSavePending;
+    pending.current = true;
     clearTimeout(ref.current);
     ref.current = setTimeout(() => {
       fetch(`/api/briefs/${id}/edit`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ [field]: value }),
-      }).catch(() => {});
+      })
+        .catch(() => {})
+        .finally(() => {
+          pending.current = false;
+        });
     }, 350);
   }
 

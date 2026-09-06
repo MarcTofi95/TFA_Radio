@@ -158,6 +158,7 @@ function AddZone({ kind, categories, defaultGender, defaultAgeRange, onConfirm, 
   const [staged, setStaged] = useState([]);
   const [dragOver, setDragOver] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
   const fileInputRef = useRef(null);
 
   function addFiles(fileList) {
@@ -191,9 +192,12 @@ function AddZone({ kind, categories, defaultGender, defaultAgeRange, onConfirm, 
   async function confirmAll() {
     if (!staged.length) return;
     setBusy(true);
+    setError('');
     try {
       await onConfirm(staged);
       setStaged([]);
+    } catch (e) {
+      setError('Toevoegen is niet gelukt — probeer het opnieuw.');
     } finally {
       setBusy(false);
     }
@@ -289,6 +293,11 @@ function AddZone({ kind, categories, defaultGender, defaultAgeRange, onConfirm, 
             )}
             {busy ? 'Bezig met toevoegen…' : `Voeg toe aan bibliotheek (${staged.length})`}
           </button>
+          {error && (
+            <div style={{ background: '#FBF3F1', border: '1px solid #C2513F', borderRadius: 8, padding: '8px 12px', fontSize: 12.5, color: '#C2513F' }}>
+              {error}
+            </div>
+          )}
         </div>
       )}
     </div>

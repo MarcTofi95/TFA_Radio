@@ -45,6 +45,18 @@ function parseInternalNotes(brief) {
   }
 }
 
+// Extra contact people added on the client's contact step beyond the
+// primary contactPerson/contactEmail — the submission confirmation email
+// goes to all of them (see lib/email.js's recipientsFor()).
+function parseAdditionalContacts(brief) {
+  try {
+    const parsed = brief.additionalContacts ? JSON.parse(brief.additionalContacts) : [];
+    return Array.isArray(parsed) ? parsed.filter((c) => c && (c.name || c.email)) : [];
+  } catch (e) {
+    return [];
+  }
+}
+
 function statusMetaOf(brief) {
   return STATUS_META[brief.status] || STATUS_META.todo;
 }
@@ -400,6 +412,9 @@ export default function DashboardClient({ briefs }) {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                   <Field label="Contactpersoon" empty={!selected.contactPerson}>{selected.contactPerson || 'Nog niet opgegeven'}</Field>
                   <Field label="E-mail" empty={!selected.contactEmail}>{selected.contactEmail || 'Nog niet opgegeven'}</Field>
+                  {parseAdditionalContacts(selected).map((c, i) => (
+                    <Field key={i} label={c.name || `Extra contact ${i + 1}`} empty={!c.email}>{c.email || 'Nog niet opgegeven'}</Field>
+                  ))}
                 </div>
               </div>
 

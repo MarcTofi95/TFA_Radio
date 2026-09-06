@@ -1,4 +1,4 @@
-# TFA Commercial Productie — Next.js port
+# TFA SpotFlow — Next.js port
 
 A Next.js 14 (App Router, JavaScript) port of the original Express/SQLite
 radio-commercial client-intake app, deployable to Vercel with Clerk auth on

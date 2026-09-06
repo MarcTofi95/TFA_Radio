@@ -82,6 +82,13 @@ export default function OverviewPage({ params }) {
   }
 
   const companyName = brief.companyName && brief.companyName.trim() ? brief.companyName : 'Nog geen bedrijfsnaam';
+  let additionalContacts = [];
+  try {
+    const parsedContacts = brief.additionalContacts ? JSON.parse(brief.additionalContacts) : [];
+    if (Array.isArray(parsedContacts)) additionalContacts = parsedContacts.filter((c) => c && (c.name || c.email));
+  } catch (e) {
+    additionalContacts = [];
+  }
   const spotLength = brief.hoofdspotLength || '20';
   const mainText = brief.editedScript !== null && brief.editedScript !== undefined ? brief.editedScript : brief.generatedScript || '';
   const varText = brief.editedVarScript !== null && brief.editedVarScript !== undefined ? brief.editedVarScript : brief.generatedVarScript || '';
@@ -105,22 +112,84 @@ export default function OverviewPage({ params }) {
   }
 
   if (brief.submittedAt) {
+    const nextSteps = [
+      { n: '1', label: 'Opname', detail: 'De stem neemt jouw script in de studio op.' },
+      { n: '2', label: 'Montage & mix', detail: 'Stem, muziek en eventuele varianten worden samengevoegd.' },
+      { n: '3', label: 'Levering', detail: 'Je ontvangt de eindbestanden, klaar voor uitzending.' },
+    ];
     return (
       <StepShell briefId={id} current={7} brief={brief} bigNum="07" kicker="Verzonden naar TFA" title={'Bedankt, ' + companyName + '!'}>
-        <div style={{ maxWidth: 540 }}>
-          <div style={{ width: 64, height: 64, borderRadius: '50%', background: '#E6C858', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 24 }}>✓</div>
-          <p style={{ fontSize: 15.5, lineHeight: 1.65, color: '#5C5850', margin: '0 0 18px' }}>
-            Je radiocommercial is succesvol verzonden naar TFA. Ons team gaat er nu mee aan de slag — van opname tot montage —
-            zodat alles op tijd klaarstaat voor uitzending.
-          </p>
-          <div style={{ background: '#FBF9EC', border: '1px solid #EAE3C4', borderRadius: 12, padding: '16px 18px', fontSize: 13.5, lineHeight: 1.55, color: '#5C5850' }}>
-            Je ontvangt ook een bevestiging per e-mail (vanaf <b style={{ color: '#1D1D1D' }}>planning@tfa.studio</b>) met een overzicht van al je keuzes — bewaar &apos;m gerust.
+        <div style={{ maxWidth: 680 }}>
+          <div
+            style={{
+              background: '#FBF9EC', border: '1.5px solid #E6C858', borderRadius: 16, padding: '32px 34px',
+              boxShadow: '0 10px 32px rgba(230,200,88,.22)', marginBottom: 22,
+            }}
+          >
+            <div
+              style={{
+                width: 56, height: 56, borderRadius: '50%', background: '#E6C858', color: '#1D1D1D',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 20,
+                fontSize: 24, fontWeight: 700, boxShadow: '0 6px 18px rgba(230,200,88,.4)',
+              }}
+            >
+              ✓
+            </div>
+            <p style={{ fontSize: 16, lineHeight: 1.65, color: '#383209', margin: '0 0 6px', fontWeight: 500 }}>
+              Je radiocommercial is succesvol verzonden naar TFA.
+            </p>
+            <p style={{ fontSize: 14, lineHeight: 1.6, color: '#5C5850', margin: 0 }}>
+              Je ontvangt zo een bevestiging per e-mail met een overzicht van al je keuzes — daarin kun je ook altijd
+              reageren als er nog iets aangepast moet worden.
+            </p>
           </div>
-          <div style={{ marginTop: 26, fontSize: 13.5, lineHeight: 1.5, color: '#5C5850' }}>
-            Vragen tussendoor? Neem contact op met <b style={{ color: '#1D1D1D' }}>Team TFA</b> via{' '}
-            <a href="mailto:planning@tfa.studio">planning@tfa.studio</a>.
+
+          <div style={{ marginBottom: 8, fontSize: 12.5, fontWeight: 600, letterSpacing: '.06em', textTransform: 'uppercase', color: '#8C8880' }}>
+            Wat gebeurt er nu?
+          </div>
+          <div style={{ display: 'flex', gap: 14, marginBottom: 30 }} className="tfa-nextsteps-row">
+            {nextSteps.map((s) => (
+              <div key={s.n} style={{ flex: 1, background: '#FFFFFF', border: '1px solid #EEECE3', borderRadius: 12, padding: '16px 16px' }}>
+                <div
+                  style={{
+                    width: 26, height: 26, borderRadius: '50%', border: '1.5px solid #E6C858', color: '#8C6D1F',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, marginBottom: 10,
+                  }}
+                >
+                  {s.n}
+                </div>
+                <div style={{ fontSize: 13.5, fontWeight: 600, color: '#1D1D1D', marginBottom: 4 }}>{s.label}</div>
+                <div style={{ fontSize: 12, lineHeight: 1.5, color: '#8C8880' }}>{s.detail}</div>
+              </div>
+            ))}
+          </div>
+
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+            <a
+              href="/start"
+              className="btn-primary"
+              style={{ display: 'inline-flex', alignItems: 'center', textDecoration: 'none', whiteSpace: 'nowrap', padding: '13px 22px' }}
+            >
+              Nog een commercial aanvragen
+            </a>
+            <a
+              href="/"
+              style={{
+                display: 'inline-flex', alignItems: 'center', border: '1px solid #C9C5B9', borderRadius: 10, background: 'transparent',
+                color: '#5C5850', fontFamily: "'Geist', system-ui, sans-serif", fontWeight: 600, fontSize: 13.5,
+                padding: '12px 22px', textDecoration: 'none', whiteSpace: 'nowrap',
+              }}
+            >
+              Terug naar de homepage
+            </a>
           </div>
         </div>
+
+        <style jsx>{`
+          @media (max-width: 640px) {
+            .tfa-nextsteps-row { flex-direction: column !important; }
+          }
+        `}</style>
       </StepShell>
     );
   }
@@ -155,6 +224,11 @@ export default function OverviewPage({ params }) {
           <div style={{ fontSize: 13, marginTop: 9 }}>{companyName}</div>
           <div style={{ fontSize: 13, marginTop: 2, color: brief.contactPerson ? '#1D1D1D' : '#9C9890' }}>{brief.contactPerson || 'Nog geen contactpersoon opgegeven'}</div>
           <div style={{ fontSize: 13, marginTop: 2, color: brief.contactEmail ? '#1D1D1D' : '#9C9890' }}>{brief.contactEmail || 'Nog geen e-mailadres opgegeven'}</div>
+          {additionalContacts.map((c, i) => (
+            <div key={i} style={{ fontSize: 12.5, marginTop: 6, paddingTop: 6, borderTop: '1px solid #EEECE3', color: '#5C5850' }}>
+              {(c.name || 'Extra contactpersoon')}{c.email ? ' — ' + c.email : ''}
+            </div>
+          ))}
         </div>
 
         <div style={compactCardStyle}>

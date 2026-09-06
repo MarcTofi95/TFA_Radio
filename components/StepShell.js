@@ -321,9 +321,9 @@ export default function StepShell({ briefId, current, brief, subtitle, bigNum, k
         <div style={{ position: 'relative', zIndex: 1 }}>
           {backHref ? (
             <div style={{ marginBottom: 18 }}>
-              <a href={backHref} style={{ fontSize: 12, color: '#8C8880', textDecoration: 'underline', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+              <Link href={backHref} style={{ fontSize: 12, color: '#8C8880', textDecoration: 'underline', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                 ← {backLabel || 'Terug'}
-              </a>
+              </Link>
             </div>
           ) : null}
           {kicker ? (
