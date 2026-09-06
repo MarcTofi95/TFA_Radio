@@ -71,6 +71,19 @@ function confirmDelete(message) {
 function TagPicker({ allTags, selected, onChange, onAddTag }) {
   const [open, setOpen] = useState(false);
   const [newTag, setNewTag] = useState('');
+  const wrapRef = useRef(null);
+
+  // Close on any click outside the picker — previously only the "Sluiten"
+  // button (or re-clicking the trigger) closed it, so clicking elsewhere on
+  // the page (e.g. straight into another field) left the dropdown open.
+  useEffect(() => {
+    if (!open) return undefined;
+    function handleClickOutside(e) {
+      if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false);
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [open]);
 
   function toggle(tag) {
     if (selected.includes(tag)) onChange(selected.filter((t) => t !== tag));
@@ -86,7 +99,7 @@ function TagPicker({ allTags, selected, onChange, onAddTag }) {
   }
 
   return (
-    <div style={{ position: 'relative' }}>
+    <div ref={wrapRef} style={{ position: 'relative' }}>
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
@@ -410,6 +423,11 @@ function TrackRow({ track, categories, selected, onToggleSelect }) {
           <div style={{ fontSize: 12, color: '#8C8880' }}>
             {track.artist} · {track.category}{track.fileId ? ` · ID: ${track.fileId}` : ''}
           </div>
+          {track.originalFilename && (
+            <div style={{ fontSize: 11, color: '#B9B6AC', fontStyle: 'italic', marginTop: 2 }}>
+              Geüpload bestand: {track.originalFilename}
+            </div>
+          )}
         </div>
         {track.audioUrl ? (
           <button
@@ -492,6 +510,11 @@ function VoiceRow({ voice, allTags, onAddTag, selected, onToggleSelect }) {
           <div style={{ fontSize: 12, color: '#8C8880' }}>
             {voice.gender} · {voice.ageRange} · {(voice.tags || []).join(', ')}{voice.fileId ? ` · ID: ${voice.fileId}` : ''}
           </div>
+          {voice.originalFilename && (
+            <div style={{ fontSize: 11, color: '#B9B6AC', fontStyle: 'italic', marginTop: 2 }}>
+              Geüpload bestand: {voice.originalFilename}
+            </div>
+          )}
         </div>
         {voice.audioUrl ? (
           <button

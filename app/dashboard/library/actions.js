@@ -32,14 +32,24 @@ async function uploadAudioIfPresent(file, prefix) {
   return blob.url;
 }
 
+// Original uploaded filename — a producer-facing detail, kept separate from
+// the client-facing title/name so it's possible to trace which file version
+// was uploaded, e.g. "master_v3_final.wav" vs. the polished title shown to
+// the client. Guarded the same way uploadAudioIfPresent's own check is.
+function originalFilenameOf(file) {
+  return file && typeof file !== 'string' && file.size ? file.name : '';
+}
+
 export async function addTrackAction(formData) {
-  const audioUrl = await uploadAudioIfPresent(formData.get('audioFile'), 'tracks');
+  const audioFile = formData.get('audioFile');
+  const audioUrl = await uploadAudioIfPresent(audioFile, 'tracks');
   await createTrack({
     title: formData.get('title'),
     artist: formData.get('artist'),
     category: formData.get('category'),
     fileId: formData.get('fileId') || '',
     audioUrl,
+    originalFilename: originalFilenameOf(audioFile),
   });
   revalidatePath('/dashboard/library');
 }
@@ -63,6 +73,7 @@ export async function updateTrackAction(id, formData) {
   };
   if (audioFile && typeof audioFile !== 'string' && audioFile.size) {
     patch.audioUrl = await uploadAudioIfPresent(audioFile, 'tracks');
+    patch.originalFilename = audioFile.name;
   }
   await updateTrack(id, patch);
   revalidatePath('/dashboard/library');
@@ -84,7 +95,8 @@ export async function addVoiceAction(formData) {
     .split(',')
     .map((t) => t.trim())
     .filter(Boolean);
-  const audioUrl = await uploadAudioIfPresent(formData.get('audioFile'), 'voices');
+  const audioFile = formData.get('audioFile');
+  const audioUrl = await uploadAudioIfPresent(audioFile, 'voices');
   await createVoice({
     name: formData.get('name'),
     gender: formData.get('gender'),
@@ -92,6 +104,7 @@ export async function addVoiceAction(formData) {
     tags,
     fileId: formData.get('fileId') || '',
     audioUrl,
+    originalFilename: originalFilenameOf(audioFile),
   });
   revalidatePath('/dashboard/library');
 }
@@ -116,6 +129,7 @@ export async function updateVoiceAction(id, formData) {
   };
   if (audioFile && typeof audioFile !== 'string' && audioFile.size) {
     patch.audioUrl = await uploadAudioIfPresent(audioFile, 'voices');
+    patch.originalFilename = audioFile.name;
   }
   await updateVoice(id, patch);
   revalidatePath('/dashboard/library');
@@ -143,6 +157,7 @@ export async function addTracksBulkAction(formData) {
       category: formData.get(`track_${i}_category`),
       fileId: formData.get(`track_${i}_fileId`) || '',
       audioUrl,
+      originalFilename: originalFilenameOf(audioFile),
     });
   }
   revalidatePath('/dashboard/library');
@@ -162,6 +177,7 @@ export async function addVoicesBulkAction(formData) {
       tags,
       fileId: formData.get(`voice_${i}_fileId`) || '',
       audioUrl,
+      originalFilename: originalFilenameOf(audioFile),
     });
   }
   revalidatePath('/dashboard/library');

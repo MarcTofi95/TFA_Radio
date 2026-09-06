@@ -287,12 +287,10 @@ export default function StepShell({ briefId, current, brief, subtitle, bigNum, k
           border-left: 2px solid transparent;
         }
         .tfa-step-row {
-          transition: background .14s ease, border-color .14s ease, transform .14s ease;
+          transition: background .15s ease, color .15s ease;
         }
         .tfa-step-row:hover {
-          background: rgba(230, 200, 88, 0.28) !important;
-          border-left-color: #E6C858 !important;
-          transform: translateX(4px);
+          background: rgba(255, 255, 255, .08);
         }
       `}</style>
     </div>
