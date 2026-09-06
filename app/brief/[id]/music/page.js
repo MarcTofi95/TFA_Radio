@@ -402,7 +402,7 @@ export default function MusicPage({ params }) {
       )}
 
       <div style={{ marginTop: 20, paddingTop: 22, borderTop: '1px solid #EAE7DE', display: 'flex', justifyContent: 'flex-end' }}>
-        <button type="button" className="btn-primary" style={{ width: 320, flex: 'none' }} disabled={selectedTracks.length === 0} onClick={next}>
+        <button type="button" className="btn-primary" style={{ minWidth: 320, flex: 'none', whiteSpace: 'nowrap', padding: '14px 26px' }} disabled={selectedTracks.length === 0} onClick={next}>
           Bevestigen — verder naar het overzicht
         </button>
       </div>

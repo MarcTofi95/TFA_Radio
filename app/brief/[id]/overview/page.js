@@ -279,7 +279,7 @@ export default function OverviewPage({ params }) {
 
       <div style={{ marginTop: 14, paddingTop: 22, borderTop: '1px solid #EAE7DE', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8 }}>
         {briefReady && !consentChecked && <div style={{ fontSize: 12, color: '#B08900', fontWeight: 500 }}>↑ Vink het vakje hierboven aan om te versturen</div>}
-        <button type="button" className="btn-primary" style={{ width: 320, flex: 'none' }} disabled={!briefReady || !consentChecked || submitting} onClick={submit}>
+        <button type="button" className="btn-primary" style={{ minWidth: 320, flex: 'none', whiteSpace: 'nowrap', padding: '14px 26px' }} disabled={!briefReady || !consentChecked || submitting} onClick={submit}>
           Bevestigen en versturen naar TFA
         </button>
       </div>

@@ -351,28 +351,49 @@ export default function StepShell({ briefId, current, brief, subtitle, bigNum, k
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            style={{ background: '#FFFFFF', borderRadius: 14, padding: '26px 28px', maxWidth: 380, width: '100%', boxShadow: '0 20px 60px rgba(29,29,29,.3)' }}
+            style={{ background: '#FFFFFF', borderRadius: 16, padding: '26px 26px 24px', maxWidth: 360, width: '100%', boxShadow: '0 20px 60px rgba(29,29,29,.3)', position: 'relative' }}
           >
-            <h3 style={{ fontFamily: "'Playfair Display', Georgia, serif", fontWeight: 600, fontSize: 20, margin: '0 0 8px', color: '#1D1D1D' }}>
+            <button
+              type="button"
+              onClick={() => setShowLeaveConfirm(false)}
+              aria-label="Sluiten"
+              style={{ position: 'absolute', top: 14, right: 14, border: 'none', background: 'transparent', color: '#8C8880', fontSize: 20, lineHeight: 1, cursor: 'pointer', padding: 4 }}
+            >
+              ×
+            </button>
+            <h3 style={{ fontFamily: "'Playfair Display', Georgia, serif", fontWeight: 600, fontSize: 19, margin: '0 26px 10px 0', color: '#1D1D1D' }}>
               Terug naar de homepage?
             </h3>
-            <p style={{ fontSize: 13, lineHeight: 1.6, color: '#5C5850', margin: '0 0 20px' }}>
+            <p style={{ fontSize: 13, lineHeight: 1.6, color: '#5C5850', margin: '0 0 22px' }}>
               Je voortgang is al automatisch opgeslagen. Kopieer de link om later verder te gaan, of ga direct terug naar de homepage.
             </p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <button type="button" onClick={copyLeaveLink} className="ghost-btn">
-                {leaveCopyState === 'copied' ? '✓ Link gekopieerd' : leaveCopyState === 'error' ? 'Kon niet kopiëren' : 'Kopieer link om later verder te gaan'}
-              </button>
-              <Link href="/" className="btn-primary" style={{ display: 'block', textAlign: 'center', textDecoration: 'none' }}>
-                Ga toch naar de homepage
-              </Link>
+            {/* Both actions share one button style — same size, padding and
+                weight — instead of borrowing the app-wide .btn-primary
+                (16.5px) and .ghost-btn (13.5px) classes, which read as two
+                mismatched button sizes stacked in the same small dialog. */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               <button
                 type="button"
-                onClick={() => setShowLeaveConfirm(false)}
-                style={{ border: 'none', background: 'transparent', color: '#8C8880', fontSize: 12.5, cursor: 'pointer', padding: '4px 0' }}
+                onClick={copyLeaveLink}
+                style={{
+                  border: 'none', borderRadius: 10, background: '#E6C858', color: '#1D1D1D',
+                  fontFamily: "'Geist', system-ui, sans-serif", fontWeight: 600, fontSize: 13.5,
+                  padding: '12px 14px', cursor: 'pointer', width: '100%',
+                }}
               >
-                Annuleren
+                {leaveCopyState === 'copied' ? '✓ Link gekopieerd' : leaveCopyState === 'error' ? 'Kon niet kopiëren' : 'Kopieer link om later verder te gaan'}
               </button>
+              <Link
+                href="/"
+                style={{
+                  border: '1px solid #C9C5B9', borderRadius: 10, background: 'transparent', color: '#5C5850',
+                  fontFamily: "'Geist', system-ui, sans-serif", fontWeight: 600, fontSize: 13.5,
+                  padding: '12px 14px', cursor: 'pointer', width: '100%', textAlign: 'center',
+                  textDecoration: 'none', display: 'block', boxSizing: 'border-box',
+                }}
+              >
+                Ga toch naar de homepage
+              </Link>
             </div>
           </div>
         </div>
@@ -520,8 +541,15 @@ export default function StepShell({ briefId, current, brief, subtitle, bigNum, k
         .tfa-step-row {
           transition: background .15s ease, color .15s ease;
         }
+        /* Same soft gold used to mark the CURRENT step (rgba(230,200,88,.10)
+           on rowStyle above) — reusing that exact tint on hover, rather than
+           a plain white tint, is what makes it read as "you can click this
+           step" instead of just a generic hover state. Only .tfa-step-row
+           gets this class, and it's only applied to steps that actually
+           render as a <Link> (isDone && briefId) — an upcoming step you
+           can't jump to renders as a plain div with no hover at all. */
         .tfa-step-row:hover {
-          background: rgba(255, 255, 255, .08);
+          background: rgba(230, 200, 88, .16);
         }
       `}</style>
     </div>

@@ -74,7 +74,7 @@ export default function ContactPage({ params }) {
       </div>
 
       <div style={{ marginTop: 36, paddingTop: 22, borderTop: '1px solid #EAE7DE', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8 }}>
-        <button type="button" className="btn-primary" style={{ width: 320, flex: 'none' }} onClick={next}>
+        <button type="button" className="btn-primary" style={{ minWidth: 320, flex: 'none', whiteSpace: 'nowrap', padding: '14px 26px' }} onClick={next}>
           Volgende — verder naar je commercial
         </button>
       </div>

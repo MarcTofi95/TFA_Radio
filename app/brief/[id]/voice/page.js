@@ -390,7 +390,7 @@ export default function VoicePage({ params }) {
             <a href="#" onClick={(e) => { e.preventDefault(); stopAudio(); setPlayingId(null); setPhase('questions'); }} style={{ fontSize: 12, color: '#8C8880', textDecoration: 'underline' }}>← Terug naar de vragen</a>
           </div>
           <div style={{ marginTop: 22, paddingTop: 22, borderTop: '1px solid #EAE7DE', display: 'flex', justifyContent: 'flex-end' }}>
-            <button type="button" className="btn-primary" style={{ width: 320, flex: 'none' }} disabled={!form.selectedVoiceId} onClick={next}>
+            <button type="button" className="btn-primary" style={{ minWidth: 320, flex: 'none', whiteSpace: 'nowrap', padding: '14px 26px' }} disabled={!form.selectedVoiceId} onClick={next}>
               Bevestigen — verder naar de muziek
             </button>
           </div>

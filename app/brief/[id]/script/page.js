@@ -480,7 +480,7 @@ export default function ScriptPage({ params }) {
             {!varUnchanged && <button type="button" className="ghost-btn" onClick={resetVar}>Terugzetten naar origineel</button>}
           </div>
           <div style={{ marginTop: 20, paddingTop: 22, borderTop: '1px solid #EAE7DE', display: 'flex', justifyContent: 'flex-end' }}>
-            <button type="button" className="btn-primary" style={{ width: 320, flex: 'none' }} onClick={continueToVoice}>Doorgaan naar de stem</button>
+            <button type="button" className="btn-primary" style={{ minWidth: 320, flex: 'none', whiteSpace: 'nowrap', padding: '14px 26px' }} onClick={continueToVoice}>Doorgaan naar de stem</button>
           </div>
         </div>
       )}

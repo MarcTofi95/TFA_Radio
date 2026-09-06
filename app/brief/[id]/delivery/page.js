@@ -150,7 +150,7 @@ export default function DeliveryPage({ params }) {
 
 
       <div style={{ marginTop: 22, paddingTop: 22, borderTop: '1px solid #EAE7DE', display: 'flex', justifyContent: 'flex-end' }}>
-        <button type="button" className="btn-primary" style={{ width: 320, flex: 'none' }} onClick={next}>
+        <button type="button" className="btn-primary" style={{ minWidth: 320, flex: 'none', whiteSpace: 'nowrap', padding: '14px 26px' }} onClick={next}>
           Volgende — verder naar je brief
         </button>
       </div>
