@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { activatePromptVersion, deactivatePromptVersion, updatePromptVersion } from '../../../../../lib/promptVersions';
+import { activatePromptVersion, deactivatePromptVersion, revisePromptVersion } from '../../../../../lib/promptVersions';
 
 export const dynamic = 'force-dynamic';
 
@@ -7,8 +7,10 @@ export const dynamic = 'force-dynamic';
 // version inactive); { action: 'deactivate' } turns the live version off
 // (script generation then falls back to the built-in default prompt until
 // another version is made live); { action: 'update', label?, content? }
-// edits the version's name and/or instructions in place, without touching
-// its status.
+// edits the version's name and/or instructions — this NEVER overwrites the
+// version in place, it creates a new one (e.g. 1.0 -> 1.1) carrying the
+// edit, taking over as live if the edited-from version was live, and
+// leaves the original version's own row untouched.
 export async function PATCH(request, { params }) {
   const body = await request.json().catch(() => ({}));
   const action = body && body.action;
@@ -16,9 +18,9 @@ export async function PATCH(request, { params }) {
     const patch = {};
     if (typeof body.label === 'string') patch.label = body.label;
     if (typeof body.content === 'string') patch.content = body.content;
-    const updated = await updatePromptVersion(params.id, patch);
-    if (!updated) return NextResponse.json({ error: 'not_found' }, { status: 404 });
-    return NextResponse.json(updated);
+    const revised = await revisePromptVersion(params.id, patch);
+    if (!revised) return NextResponse.json({ error: 'not_found' }, { status: 404 });
+    return NextResponse.json(revised);
   }
   if (action !== 'activate' && action !== 'deactivate') {
     return NextResponse.json({ error: 'invalid_action' }, { status: 400 });

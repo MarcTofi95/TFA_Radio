@@ -8,6 +8,13 @@ import useMinDelay from '../../../../components/useMinDelay';
 import { useBrief } from '../../../../components/useBrief';
 import { AGE_LABELS } from '../../../../components/flowData';
 
+function formatTime(sec) {
+  if (!isFinite(sec) || sec < 0) return '0:00';
+  const m = Math.floor(sec / 60);
+  const s = Math.floor(sec % 60);
+  return `${m}:${String(s).padStart(2, '0')}`;
+}
+
 // Step 5 — mirrors public/voice.html (questions phase, then a curated
 // shortlist of voices to pick from). Voices come from the producer's real
 // library (added under /dashboard/library) via GET /api/library/voices —
@@ -25,6 +32,8 @@ export default function VoicePage({ params }) {
   const [form, setForm] = useState({ voiceGender: '', voiceAgeRange: '', voiceStyleTags: [], voiceNote: '', selectedVoiceId: '' });
   const [phase, setPhase] = useState('questions');
   const [playingId, setPlayingId] = useState(null);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
   const [voicePool, setVoicePool] = useState([]);
   const [poolLoading, setPoolLoading] = useState(true);
   const audioRef = useRef(null);
@@ -71,6 +80,28 @@ export default function VoicePage({ params }) {
       audioRef.current.pause();
       audioRef.current = null;
     }
+    setCurrentTime(0);
+    setDuration(0);
+  }
+
+  // ±5s skip and drag-to-seek for the currently playing preview — kept as
+  // free functions (rather than baked into playPreview) so the compact
+  // inline controls below can call them directly without re-triggering the
+  // play/stop toggle.
+  function skipPreview(delta) {
+    const audio = audioRef.current;
+    if (!audio) return;
+    const max = duration || audio.duration || 0;
+    audio.currentTime = Math.max(0, Math.min(max, audio.currentTime + delta));
+    setCurrentTime(audio.currentTime);
+  }
+
+  function seekPreview(e) {
+    const audio = audioRef.current;
+    if (!audio) return;
+    const t = parseFloat(e.target.value);
+    audio.currentTime = t;
+    setCurrentTime(t);
   }
 
   const allTags = Array.from(new Set(voicePool.flatMap((v) => v.tags || []))).sort();
@@ -148,7 +179,9 @@ export default function VoicePage({ params }) {
     if (voice.audioUrl) {
       const audio = new Audio(voice.audioUrl);
       audioRef.current = audio;
-      audio.onended = () => setPlayingId((c) => (c === voice.id ? null : c));
+      audio.onended = () => { setPlayingId((c) => (c === voice.id ? null : c)); setCurrentTime(0); };
+      audio.ontimeupdate = () => setCurrentTime(audio.currentTime || 0);
+      audio.onloadedmetadata = () => setDuration(audio.duration || 0);
       audio.play().catch(() => {});
       setPlayingId(voice.id);
     } else {
@@ -252,13 +285,42 @@ export default function VoicePage({ params }) {
                       </div>
                       <div style={{ width: 22, height: 22, borderRadius: '50%', border: '1.5px solid ' + (isSelected ? '#E6C858' : '#C9C5B9'), background: isSelected ? '#E6C858' : '#FFFFFF' }} />
                     </div>
-                    <button
-                      type="button"
-                      onClick={(e) => { e.stopPropagation(); playPreview(voice); }}
-                      style={{ marginTop: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, width: '100%', border: '1px solid #C9C5B9', borderRadius: 9, background: '#FBF9EC', color: '#383209', fontWeight: 500, fontSize: 12.5, padding: '9px 12px', cursor: 'pointer' }}
-                    >
-                      {isPlaying ? 'Bezig met afspelen…' : voice.audioUrl ? 'Voorbeeld beluisteren' : 'Voorbeeld beluisteren (geen audio)'}
-                    </button>
+                    {isPlaying && voice.audioUrl ? (
+                      <div
+                        onClick={(e) => e.stopPropagation()}
+                        style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 6, width: '100%', border: '1px solid #E6C858', borderRadius: 9, background: 'rgba(230,200,88,.14)', padding: '7px 10px' }}
+                      >
+                        <button type="button" onClick={() => skipPreview(-5)} title="5 seconden terug" style={{ border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 14, color: '#383209', flex: 'none', padding: '2px' }}>⏮</button>
+                        <button
+                          type="button"
+                          onClick={() => playPreview(voice)}
+                          title="Pauzeer"
+                          style={{ width: 26, height: 26, borderRadius: '50%', border: 'none', background: '#1D1D1D', color: '#FFFFFF', cursor: 'pointer', fontSize: 11, flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                        >
+                          ❚❚
+                        </button>
+                        <button type="button" onClick={() => skipPreview(5)} title="5 seconden vooruit" style={{ border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 14, color: '#383209', flex: 'none', padding: '2px' }}>⏭</button>
+                        <span style={{ fontSize: 10.5, color: '#8C6D1F', flex: 'none', width: 30, textAlign: 'right' }}>{formatTime(currentTime)}</span>
+                        <input
+                          type="range"
+                          min={0}
+                          max={duration || 0}
+                          step={0.01}
+                          value={Math.min(currentTime, duration || 0)}
+                          onChange={seekPreview}
+                          style={{ flex: 1, accentColor: '#E6C858', cursor: 'pointer' }}
+                        />
+                        <span style={{ fontSize: 10.5, color: '#8C6D1F', flex: 'none', width: 30 }}>{formatTime(duration)}</span>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); playPreview(voice); }}
+                        style={{ marginTop: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, width: '100%', border: '1px solid #C9C5B9', borderRadius: 9, background: '#FBF9EC', color: '#383209', fontWeight: 500, fontSize: 12.5, padding: '9px 12px', cursor: 'pointer' }}
+                      >
+                        {isPlaying ? 'Bezig met afspelen…' : voice.audioUrl ? 'Voorbeeld beluisteren' : 'Voorbeeld beluisteren (geen audio)'}
+                      </button>
+                    )}
                   </div>
                 );
               })}

@@ -9,6 +9,13 @@ import { useBrief } from '../../../../components/useBrief';
 
 const MAX_TRACKS = 3;
 
+function formatTime(sec) {
+  if (!isFinite(sec) || sec < 0) return '0:00';
+  const m = Math.floor(sec / 60);
+  const s = Math.floor(sec % 60);
+  return `${m}:${String(s).padStart(2, '0')}`;
+}
+
 // Step 6 — mirrors public/music.html: browse curated playlists, pick up to
 // 3 favorite tracks. Tracks come from the producer's real library (added
 // under /dashboard/library) via GET /api/library/tracks, grouped by their
@@ -23,6 +30,8 @@ export default function MusicPage({ params }) {
   const [selectedTracks, setSelectedTracks] = useState([]);
   const [openPlaylistId, setOpenPlaylistId] = useState(null);
   const [playingTrackId, setPlayingTrackId] = useState(null);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
   const [tracks, setTracks] = useState([]);
   const [categories, setCategories] = useState([]);
   const [poolLoading, setPoolLoading] = useState(true);
@@ -75,6 +84,26 @@ export default function MusicPage({ params }) {
       audioRef.current.pause();
       audioRef.current = null;
     }
+    setCurrentTime(0);
+    setDuration(0);
+  }
+
+  // ±5s skip and drag-to-seek for the currently playing preview — see the
+  // identical pair in voice/page.js.
+  function skipPreview(delta) {
+    const audio = audioRef.current;
+    if (!audio) return;
+    const max = duration || audio.duration || 0;
+    audio.currentTime = Math.max(0, Math.min(max, audio.currentTime + delta));
+    setCurrentTime(audio.currentTime);
+  }
+
+  function seekPreview(e) {
+    const audio = audioRef.current;
+    if (!audio) return;
+    const t = parseFloat(e.target.value);
+    audio.currentTime = t;
+    setCurrentTime(t);
   }
 
   // Group the real track list into "playlists" by category — a category
@@ -156,7 +185,9 @@ export default function MusicPage({ params }) {
     if (track.audioUrl) {
       const audio = new Audio(track.audioUrl);
       audioRef.current = audio;
-      audio.onended = () => setPlayingTrackId((c) => (c === track.id ? null : c));
+      audio.onended = () => { setPlayingTrackId((c) => (c === track.id ? null : c)); setCurrentTime(0); };
+      audio.ontimeupdate = () => setCurrentTime(audio.currentTime || 0);
+      audio.onloadedmetadata = () => setDuration(audio.duration || 0);
       audio.play().catch(() => {});
       setPlayingTrackId(track.id);
     } else {
@@ -229,19 +260,58 @@ export default function MusicPage({ params }) {
                       const selected = selectedIndex(track.id) !== -1;
                       const isPlaying = playingTrackId === track.id;
                       return (
-                        <div key={track.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', borderRadius: 6, background: selected ? '#FBF0C8' : 'transparent', opacity: atLimit && !selected ? 0.45 : 1 }}>
-                          <button type="button" onClick={() => playPreview(track)} style={{ flex: 'none', width: 30, height: 30, borderRadius: '50%', border: '1px solid #C9C5B9', background: '#FBF9EC', cursor: 'pointer' }}>
+                        <div
+                          key={track.id}
+                          onClick={() => { if (!atLimit || selected) toggleTrack(track, pl); }}
+                          className="tfa-track-row"
+                          style={{
+                            display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', borderRadius: 6,
+                            background: selected ? '#FBF0C8' : 'transparent', opacity: atLimit && !selected ? 0.45 : 1,
+                            cursor: atLimit && !selected ? 'not-allowed' : 'pointer',
+                          }}
+                        >
+                          <button type="button" onClick={(e) => { e.stopPropagation(); playPreview(track); }} style={{ flex: 'none', width: 30, height: 30, borderRadius: '50%', border: '1px solid #C9C5B9', background: '#FBF9EC', cursor: 'pointer' }}>
                             {isPlaying ? '❚❚' : '▶'}
                           </button>
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ fontSize: 12.5, fontWeight: selected ? 600 : 500, color: '#1D1D1D', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{track.title}</div>
-                            <div style={{ fontSize: 11, color: '#8C8880', marginTop: 1 }}>{track.artist}{track.artist && track.duration ? ' · ' : ''}{track.duration}</div>
-                          </div>
+                          {isPlaying && track.audioUrl ? (
+                            // Flips the title/artist text in place into a compact
+                            // scrubber while this track plays — same row height,
+                            // no dropdown — rather than opening extra space below
+                            // every track just to offer seek/skip controls.
+                            <div onClick={(e) => e.stopPropagation()} style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
+                              <button type="button" onClick={() => skipPreview(-5)} title="5 seconden terug" style={{ border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 13, color: '#5C5850', flex: 'none', padding: '2px' }}>⏮</button>
+                              <span style={{ fontSize: 10.5, color: '#8C6D1F', flex: 'none', width: 28, textAlign: 'right' }}>{formatTime(currentTime)}</span>
+                              <input
+                                type="range"
+                                min={0}
+                                max={duration || 0}
+                                step={0.01}
+                                value={Math.min(currentTime, duration || 0)}
+                                onChange={seekPreview}
+                                style={{ flex: 1, minWidth: 0, accentColor: '#E6C858', cursor: 'pointer' }}
+                              />
+                              <span style={{ fontSize: 10.5, color: '#8C6D1F', flex: 'none', width: 28 }}>{formatTime(duration)}</span>
+                              <button type="button" onClick={() => skipPreview(5)} title="5 seconden vooruit" style={{ border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 13, color: '#5C5850', flex: 'none', padding: '2px' }}>⏭</button>
+                            </div>
+                          ) : (
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ fontSize: 12.5, fontWeight: selected ? 600 : 500, color: '#1D1D1D', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{track.title}</div>
+                              <div style={{ fontSize: 11, color: '#8C8880', marginTop: 1 }}>{track.artist}{track.artist && track.duration ? ' · ' : ''}{track.duration}</div>
+                            </div>
+                          )}
                           <button
                             type="button"
-                            onClick={() => toggleTrack(track, pl)}
-                            style={{ flex: 'none', width: 20, height: 20, borderRadius: '50%', border: '1.5px solid ' + (selected ? '#E6C858' : '#C9C5B9'), background: selected ? '#E6C858' : '#FFFFFF', cursor: 'pointer' }}
-                          />
+                            onClick={(e) => { e.stopPropagation(); toggleTrack(track, pl); }}
+                            title={selected ? 'Track gekozen — klik om te verwijderen' : 'Kies deze track'}
+                            className="tfa-track-select"
+                            style={{
+                              flex: 'none', width: 26, height: 26, borderRadius: '50%',
+                              border: '1.5px solid ' + (selected ? '#E6C858' : '#C9C5B9'), background: selected ? '#E6C858' : '#FFFFFF',
+                              cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#1D1D1D', fontSize: 13, fontWeight: 700,
+                            }}
+                          >
+                            {selected ? '✓' : ''}
+                          </button>
                         </div>
                       );
                     })}
@@ -275,6 +345,18 @@ export default function MusicPage({ params }) {
       </div>
       <div style={{ fontSize: 11, color: '#8C8880', textAlign: 'right', marginTop: 10, height: 14 }}>{saveState}</div>
       <p style={{ marginTop: 20, fontSize: 11.5, color: '#8C8880', lineHeight: 1.5 }}>Twijfel je tussen twee tracks? Je kunt je keuze altijd nog aanpassen voordat je alles verstuurt.</p>
+
+      <style jsx>{`
+        .tfa-track-row:hover {
+          background: rgba(230, 200, 88, 0.08);
+        }
+        .tfa-track-select {
+          transition: box-shadow 0.12s ease, transform 0.12s ease;
+        }
+        .tfa-track-row:hover .tfa-track-select {
+          box-shadow: 0 0 0 4px rgba(230, 200, 88, 0.25);
+        }
+      `}</style>
     </StepShell>
   );
 }

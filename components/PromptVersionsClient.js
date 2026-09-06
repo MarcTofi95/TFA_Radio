@@ -174,6 +174,7 @@ export default function PromptVersionsClient({ initialVersions }) {
                   ) : (
                     <span style={{ fontSize: 14, fontWeight: 600 }}>{v.label}</span>
                   )}
+                  <span style={{ fontSize: 11, fontWeight: 600, color: '#8C6D1F', background: 'rgba(230,200,88,.18)', borderRadius: 999, padding: '2px 8px' }}>v{v.version || '1.0'}</span>
                   <StatusBadge status={v.status} />
                 </div>
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
@@ -184,7 +185,7 @@ export default function PromptVersionsClient({ initialVersions }) {
                         Annuleren
                       </button>
                       <button type="button" disabled={busyId === v.id || !editContent.trim()} onClick={() => saveEdit(v.id)} className="btn-primary tfa-btn-glow" style={{ padding: '6px 12px', fontSize: 12, opacity: busyId === v.id ? 0.7 : 1 }}>
-                        {busyId === v.id ? 'Bezig...' : 'Opslaan'}
+                        {busyId === v.id ? 'Bezig...' : 'Opslaan als nieuwe versie'}
                       </button>
                     </>
                   ) : (
@@ -206,11 +207,19 @@ export default function PromptVersionsClient({ initialVersions }) {
                 </div>
               </div>
               {isEditing ? (
-                <textarea
-                  value={editContent}
-                  onChange={(e) => setEditContent(e.target.value)}
-                  style={{ marginTop: 10, width: '100%', minHeight: 220, border: '1px solid #C9C5B9', borderRadius: 8, padding: '10px 12px', fontSize: 12.5, lineHeight: 1.55, fontFamily: 'inherit' }}
-                />
+                <>
+                  <textarea
+                    value={editContent}
+                    onChange={(e) => setEditContent(e.target.value)}
+                    style={{ marginTop: 10, width: '100%', minHeight: 220, border: '1px solid #C9C5B9', borderRadius: 8, padding: '10px 12px', fontSize: 12.5, lineHeight: 1.55, fontFamily: 'inherit' }}
+                  />
+                  <div style={{ fontSize: 11.5, color: '#8C8880', marginTop: 6 }}>
+                    Opslaan maakt hier een nieuwe versie van (v{(() => {
+                      const maxMinor = versions.reduce((m, ver) => Math.max(m, parseInt((ver.version || '1.0').split('.')[1] || '0', 10)), 0);
+                      return '1.' + (maxMinor + 1);
+                    })()}) — v{v.version || '1.0'} zelf blijft ongewijzigd bewaard.
+                  </div>
+                </>
               ) : (
                 <pre style={{ marginTop: 10, whiteSpace: 'pre-wrap', fontFamily: 'inherit', fontSize: 12.5, lineHeight: 1.55, color: '#383209', background: '#FBF9EC', border: '1px solid #EAE3C4', borderRadius: 8, padding: '10px 12px', maxHeight: 160, overflowY: 'auto' }}>
                   {v.content}

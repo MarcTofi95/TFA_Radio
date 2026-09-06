@@ -46,14 +46,21 @@ export default function StepShell({ briefId, current, brief, subtitle, bigNum, k
           <BrandMark size={22} />
           TFA
         </div>
-        <h1
-          style={{
-            fontFamily: "'Playfair Display', Georgia, serif", fontWeight: 600, fontSize: 24,
-            color: companyName ? '#FFFFFF' : '#8C897E', margin: '16px 0 0', lineHeight: 1.3,
-          }}
-        >
-          {companyName || 'Nog geen bedrijfsnaam'}
-        </h1>
+        {/* On step 1 the client hasn't had a chance to fill in the company
+            name yet (it's the very field this step asks for), so showing a
+            "Nog geen bedrijfsnaam" placeholder here reads as if something's
+            missing before they've even started. It only starts appearing
+            from step 2 onward, once the name has actually been saved. */}
+        {current !== 1 && (
+          <h1
+            style={{
+              fontFamily: "'Playfair Display', Georgia, serif", fontWeight: 600, fontSize: 24,
+              color: companyName ? '#FFFFFF' : '#8C897E', margin: '16px 0 0', lineHeight: 1.3,
+            }}
+          >
+            {companyName || 'Nog geen bedrijfsnaam'}
+          </h1>
+        )}
         {subtitle ? <div style={{ fontSize: 11.5, color: '#B9B6AC', marginTop: 4 }}>{subtitle}</div> : null}
 
         <div style={{ marginTop: 28, display: 'flex', flexDirection: 'column', gap: 1 }}>

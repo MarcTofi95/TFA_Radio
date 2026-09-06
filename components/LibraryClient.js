@@ -271,8 +271,90 @@ function AddZone({ kind, categories, defaultGender, defaultAgeRange, onConfirm, 
   );
 }
 
+function formatTime(sec) {
+  if (!isFinite(sec) || sec < 0) return '0:00';
+  const m = Math.floor(sec / 60);
+  const s = Math.floor(sec % 60);
+  return `${m}:${String(s).padStart(2, '0')}`;
+}
+
+// Full-width preview player that drops down below a library row instead of
+// squeezing a native <audio controls> into the row itself (which left it
+// tiny and cramped on the right). Play/pause, a scrubber you can drag, a
+// current/total time readout, and ±5s skip buttons for quickly checking a
+// specific moment in a track or voice demo.
+function AudioPlayer({ src }) {
+  const audioRef = useRef(null);
+  const [playing, setPlaying] = useState(false);
+  const [current, setCurrent] = useState(0);
+  const [duration, setDuration] = useState(0);
+
+  function togglePlay() {
+    const audio = audioRef.current;
+    if (!audio) return;
+    if (playing) audio.pause();
+    else audio.play();
+  }
+
+  function skip(delta) {
+    const audio = audioRef.current;
+    if (!audio) return;
+    audio.currentTime = Math.max(0, Math.min((duration || 0), audio.currentTime + delta));
+  }
+
+  function seek(e) {
+    const audio = audioRef.current;
+    if (!audio || !duration) return;
+    audio.currentTime = parseFloat(e.target.value);
+  }
+
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', background: '#FBF9EC', border: '1px solid #EAE3C4', borderRadius: 10, width: '100%' }}>
+      <audio
+        ref={audioRef}
+        src={src}
+        onPlay={() => setPlaying(true)}
+        onPause={() => setPlaying(false)}
+        onLoadedMetadata={(e) => setDuration(e.currentTarget.duration || 0)}
+        onTimeUpdate={(e) => setCurrent(e.currentTarget.currentTime || 0)}
+        onEnded={() => setPlaying(false)}
+        style={{ display: 'none' }}
+      />
+      <button type="button" onClick={() => skip(-5)} title="5 seconden terug" style={{ border: 'none', background: 'transparent', color: '#5C5850', cursor: 'pointer', fontSize: 15, flex: 'none', padding: '4px 2px' }}>
+        ⏮
+      </button>
+      <button
+        type="button"
+        onClick={togglePlay}
+        title={playing ? 'Pauzeer' : 'Speel af'}
+        style={{
+          width: 34, height: 34, borderRadius: '50%', border: 'none', background: '#1D1D1D', color: '#FFFFFF',
+          cursor: 'pointer', fontSize: 13, flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}
+      >
+        {playing ? '❚❚' : '▶'}
+      </button>
+      <button type="button" onClick={() => skip(5)} title="5 seconden vooruit" style={{ border: 'none', background: 'transparent', color: '#5C5850', cursor: 'pointer', fontSize: 15, flex: 'none', padding: '4px 2px' }}>
+        ⏭
+      </button>
+      <span style={{ fontSize: 11.5, color: '#8C8880', flex: 'none', width: 36, textAlign: 'right' }}>{formatTime(current)}</span>
+      <input
+        type="range"
+        min={0}
+        max={duration || 0}
+        step={0.01}
+        value={Math.min(current, duration || 0)}
+        onChange={seek}
+        style={{ flex: 1, accentColor: '#E6C858', cursor: 'pointer' }}
+      />
+      <span style={{ fontSize: 11.5, color: '#8C8880', flex: 'none', width: 36 }}>{formatTime(duration)}</span>
+    </div>
+  );
+}
+
 function TrackRow({ track, categories, selected, onToggleSelect }) {
   const [editing, setEditing] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
 
   if (editing) {
     return (
@@ -303,31 +385,43 @@ function TrackRow({ track, categories, selected, onToggleSelect }) {
   }
 
   return (
-    <div style={rowStyle}>
-      <input type="checkbox" checked={selected} onChange={() => onToggleSelect(track.id)} style={{ width: 16, height: 16, accentColor: '#E6C858', cursor: 'pointer', flex: 'none' }} />
-      <div style={{ flex: 1, minWidth: 160 }}>
-        <div style={{ fontSize: 13.5, fontWeight: 600 }}>{track.title}</div>
-        <div style={{ fontSize: 12, color: '#8C8880' }}>
-          {track.artist} · {track.category}{track.fileId ? ` · ID: ${track.fileId}` : ''}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, width: '100%' }}>
+      <div style={rowStyle}>
+        <input type="checkbox" checked={selected} onChange={() => onToggleSelect(track.id)} style={{ width: 16, height: 16, accentColor: '#E6C858', cursor: 'pointer', flex: 'none' }} />
+        <div style={{ flex: 1, minWidth: 160 }}>
+          <div style={{ fontSize: 13.5, fontWeight: 600 }}>{track.title}</div>
+          <div style={{ fontSize: 12, color: '#8C8880' }}>
+            {track.artist} · {track.category}{track.fileId ? ` · ID: ${track.fileId}` : ''}
+          </div>
         </div>
-      </div>
-      {track.audioUrl ? (
-        <audio controls src={track.audioUrl} style={{ height: 32, maxWidth: 220 }} />
-      ) : (
-        <div style={{ fontSize: 11.5, color: '#B9B6AC', fontStyle: 'italic' }}>Geen audio geüpload</div>
-      )}
-      <button type="button" onClick={() => setEditing(true)} style={{ border: '1px solid #C9C5B9', background: '#FFFFFF', color: '#1D1D1D', cursor: 'pointer', fontSize: 12, borderRadius: 8, padding: '7px 12px' }}>
-        Bewerken
-      </button>
-      <form action={removeTrackAction.bind(null, track.id)}>
-        <button
-          type="submit"
-          onClick={confirmDelete(`Weet je zeker dat je "${track.title || 'deze track'}" wilt verwijderen? Dit kan niet ongedaan worden gemaakt.`)}
-          style={{ border: 'none', background: 'transparent', color: '#C2513F', cursor: 'pointer', fontSize: 12 }}
-        >
-          Verwijderen
+        {track.audioUrl ? (
+          <button
+            type="button"
+            onClick={() => setPreviewOpen((o) => !o)}
+            style={{
+              border: '1px solid ' + (previewOpen ? '#E6C858' : '#C9C5B9'), background: previewOpen ? 'rgba(230,200,88,.14)' : '#FFFFFF',
+              color: '#1D1D1D', cursor: 'pointer', fontSize: 12, borderRadius: 8, padding: '7px 12px', display: 'flex', alignItems: 'center', gap: 6,
+            }}
+          >
+            ▶ {previewOpen ? 'Verberg preview' : 'Beluister'}
+          </button>
+        ) : (
+          <div style={{ fontSize: 11.5, color: '#B9B6AC', fontStyle: 'italic' }}>Geen audio geüpload</div>
+        )}
+        <button type="button" onClick={() => setEditing(true)} style={{ border: '1px solid #C9C5B9', background: '#FFFFFF', color: '#1D1D1D', cursor: 'pointer', fontSize: 12, borderRadius: 8, padding: '7px 12px' }}>
+          Bewerken
         </button>
-      </form>
+        <form action={removeTrackAction.bind(null, track.id)}>
+          <button
+            type="submit"
+            onClick={confirmDelete(`Weet je zeker dat je "${track.title || 'deze track'}" wilt verwijderen? Dit kan niet ongedaan worden gemaakt.`)}
+            style={{ border: 'none', background: 'transparent', color: '#C2513F', cursor: 'pointer', fontSize: 12 }}
+          >
+            Verwijderen
+          </button>
+        </form>
+      </div>
+      {previewOpen && track.audioUrl && <AudioPlayer src={track.audioUrl} />}
     </div>
   );
 }
@@ -335,6 +429,7 @@ function TrackRow({ track, categories, selected, onToggleSelect }) {
 function VoiceRow({ voice, allTags, onAddTag, selected, onToggleSelect }) {
   const [editing, setEditing] = useState(false);
   const [editTags, setEditTags] = useState(voice.tags || []);
+  const [previewOpen, setPreviewOpen] = useState(false);
 
   if (editing) {
     return (
@@ -372,31 +467,43 @@ function VoiceRow({ voice, allTags, onAddTag, selected, onToggleSelect }) {
   }
 
   return (
-    <div style={rowStyle}>
-      <input type="checkbox" checked={selected} onChange={() => onToggleSelect(voice.id)} style={{ width: 16, height: 16, accentColor: '#E6C858', cursor: 'pointer', flex: 'none' }} />
-      <div style={{ flex: 1, minWidth: 160 }}>
-        <div style={{ fontSize: 13.5, fontWeight: 600 }}>{voice.name}</div>
-        <div style={{ fontSize: 12, color: '#8C8880' }}>
-          {voice.gender} · {voice.ageRange} · {(voice.tags || []).join(', ')}{voice.fileId ? ` · ID: ${voice.fileId}` : ''}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, width: '100%' }}>
+      <div style={rowStyle}>
+        <input type="checkbox" checked={selected} onChange={() => onToggleSelect(voice.id)} style={{ width: 16, height: 16, accentColor: '#E6C858', cursor: 'pointer', flex: 'none' }} />
+        <div style={{ flex: 1, minWidth: 160 }}>
+          <div style={{ fontSize: 13.5, fontWeight: 600 }}>{voice.name}</div>
+          <div style={{ fontSize: 12, color: '#8C8880' }}>
+            {voice.gender} · {voice.ageRange} · {(voice.tags || []).join(', ')}{voice.fileId ? ` · ID: ${voice.fileId}` : ''}
+          </div>
         </div>
-      </div>
-      {voice.audioUrl ? (
-        <audio controls src={voice.audioUrl} style={{ height: 32, maxWidth: 220 }} />
-      ) : (
-        <div style={{ fontSize: 11.5, color: '#B9B6AC', fontStyle: 'italic' }}>Geen audio geüpload</div>
-      )}
-      <button type="button" onClick={() => setEditing(true)} style={{ border: '1px solid #C9C5B9', background: '#FFFFFF', color: '#1D1D1D', cursor: 'pointer', fontSize: 12, borderRadius: 8, padding: '7px 12px' }}>
-        Bewerken
-      </button>
-      <form action={removeVoiceAction.bind(null, voice.id)}>
-        <button
-          type="submit"
-          onClick={confirmDelete(`Weet je zeker dat je "${voice.name || 'deze stem'}" wilt verwijderen? Dit kan niet ongedaan worden gemaakt.`)}
-          style={{ border: 'none', background: 'transparent', color: '#C2513F', cursor: 'pointer', fontSize: 12 }}
-        >
-          Verwijderen
+        {voice.audioUrl ? (
+          <button
+            type="button"
+            onClick={() => setPreviewOpen((o) => !o)}
+            style={{
+              border: '1px solid ' + (previewOpen ? '#E6C858' : '#C9C5B9'), background: previewOpen ? 'rgba(230,200,88,.14)' : '#FFFFFF',
+              color: '#1D1D1D', cursor: 'pointer', fontSize: 12, borderRadius: 8, padding: '7px 12px', display: 'flex', alignItems: 'center', gap: 6,
+            }}
+          >
+            ▶ {previewOpen ? 'Verberg preview' : 'Beluister'}
+          </button>
+        ) : (
+          <div style={{ fontSize: 11.5, color: '#B9B6AC', fontStyle: 'italic' }}>Geen audio geüpload</div>
+        )}
+        <button type="button" onClick={() => setEditing(true)} style={{ border: '1px solid #C9C5B9', background: '#FFFFFF', color: '#1D1D1D', cursor: 'pointer', fontSize: 12, borderRadius: 8, padding: '7px 12px' }}>
+          Bewerken
         </button>
-      </form>
+        <form action={removeVoiceAction.bind(null, voice.id)}>
+          <button
+            type="submit"
+            onClick={confirmDelete(`Weet je zeker dat je "${voice.name || 'deze stem'}" wilt verwijderen? Dit kan niet ongedaan worden gemaakt.`)}
+            style={{ border: 'none', background: 'transparent', color: '#C2513F', cursor: 'pointer', fontSize: 12 }}
+          >
+            Verwijderen
+          </button>
+        </form>
+      </div>
+      {previewOpen && voice.audioUrl && <AudioPlayer src={voice.audioUrl} />}
     </div>
   );
 }
@@ -567,45 +674,34 @@ export default function LibraryClient({ tracks, voices, categories, defaultTags 
 
   return (
     <div>
-      <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
         <button
           type="button"
-          onClick={() => setTab('music')}
+          onClick={() => { setTab('music'); setView('browse'); }}
           style={{ border: 'none', borderRadius: 999, padding: '9px 18px', fontSize: 13, fontWeight: 600, cursor: 'pointer', background: tab === 'music' ? '#1D1D1D' : '#FFFFFF', color: tab === 'music' ? '#FFFFFF' : '#5C5850' }}
         >
-          Muziek
+          Muziek <span style={{ opacity: 0.65, fontWeight: 500 }}>({tracks.length})</span>
         </button>
         <button
           type="button"
-          onClick={() => setTab('voice')}
+          onClick={() => { setTab('voice'); setView('browse'); }}
           style={{ border: 'none', borderRadius: 999, padding: '9px 18px', fontSize: 13, fontWeight: 600, cursor: 'pointer', background: tab === 'voice' ? '#1D1D1D' : '#FFFFFF', color: tab === 'voice' ? '#FFFFFF' : '#5C5850' }}
         >
-          Stemmen
+          Stemmen <span style={{ opacity: 0.65, fontWeight: 500 }}>({voices.length})</span>
         </button>
-      </div>
 
-      <div style={{ display: 'flex', gap: 6, marginBottom: 20, borderBottom: '1px solid #DBD7CC' }}>
+        {/* One visible, obvious action to add new music/voices — replacing the
+            old "Bibliotheek / + Toevoegen" sub-tabs, which just duplicated the
+            "library" concept the whole page already is. Opening a tab now
+            drops you straight into its library; this button is the only way
+            to get to the add-tool, and it flips to a clear way back. */}
         <button
           type="button"
-          onClick={() => setView('browse')}
-          style={{
-            border: 'none', background: 'transparent', cursor: 'pointer', padding: '8px 4px', marginRight: 18,
-            fontSize: 13.5, fontWeight: 600, color: view === 'browse' ? '#1D1D1D' : '#8C8880',
-            borderBottom: view === 'browse' ? '2px solid #E6C858' : '2px solid transparent',
-          }}
+          onClick={() => setView((v) => (v === 'add' ? 'browse' : 'add'))}
+          className="btn-primary tfa-btn-glow"
+          style={{ marginLeft: 'auto', padding: '9px 18px', fontSize: 13 }}
         >
-          Bibliotheek {tab === 'music' ? `(${tracks.length})` : `(${voices.length})`}
-        </button>
-        <button
-          type="button"
-          onClick={() => setView('add')}
-          style={{
-            border: 'none', background: 'transparent', cursor: 'pointer', padding: '8px 4px',
-            fontSize: 13.5, fontWeight: 600, color: view === 'add' ? '#1D1D1D' : '#8C8880',
-            borderBottom: view === 'add' ? '2px solid #E6C858' : '2px solid transparent',
-          }}
-        >
-          + Toevoegen
+          {view === 'add' ? '← Terug naar bibliotheek' : `+ ${tab === 'music' ? 'Muziek' : 'Stem'} toevoegen`}
         </button>
       </div>
 
@@ -654,6 +750,8 @@ export default function LibraryClient({ tracks, voices, categories, defaultTags 
         @keyframes tfa-spin {
           to { transform: rotate(360deg); }
         }
+        .tfa-btn-glow { transition: filter .12s ease; }
+        .tfa-btn-glow:hover { filter: brightness(1.08); }
       `}</style>
     </div>
   );

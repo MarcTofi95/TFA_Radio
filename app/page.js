@@ -39,52 +39,27 @@ export default function HomePage() {
               Start je commercial
               <span className="tfa-cta-arrow" aria-hidden="true">→</span>
             </Link>
+            <div style={{ marginTop: 16, fontSize: 12.5, color: '#8C8880' }}>
+              Geen account nodig — je krijgt direct je eigen brieflink.
+            </div>
           </main>
         </div>
       </div>
 
-      {/* Deliberately NOT framed as numbered "steps" (the old 01/02/03 badges
-          read exactly like step 1/2/3) — the real client flow has seven
-          steps, and a landing page promising three then opening into seven
-          feels like a bait-and-switch. Same three ideas, presented as
-          parallel qualities of the service instead of a literal count, so
-          nothing here contradicts what the flow itself shows. */}
-      <div style={{ maxWidth: 1180, margin: '80px auto 0', padding: '0 20px', textAlign: 'center' }}>
-        <div style={{ fontSize: 13, letterSpacing: '.09em', textTransform: 'uppercase', color: '#8C6D1F', fontWeight: 600 }}>Zo pakt TFA het aan</div>
-      </div>
-      <section style={{ maxWidth: 1180, margin: '18px auto 80px', padding: '0 20px', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 20 }}>
-        {[
-          { title: 'Jij vertelt het verhaal', text: 'Contactgegevens, levering en een korte brief over je product, doelgroep en boodschap.' },
-          { title: 'TFA schrijft en stelt voor', text: 'Een scriptvoorstel, stemvoorstellen en gecureerde muziek — allemaal op maat van je brief.' },
-          { title: 'Jij keurt goed', text: 'Pas het script aan waar nodig, kies je favoriete stem en track, en verstuur.' },
-        ].map((card) => (
-          <div key={card.title} style={{ background: '#FFFFFF', borderRadius: 16, padding: '28px 26px', boxShadow: '0 2px 20px rgba(29,29,29,.06)' }}>
-            <div style={{ display: 'flex', gap: 6, alignItems: 'flex-end' }}>
-              {[6, 10, 14, 10, 6].map((h, i) => (
-                <span key={i} style={{ display: 'block', width: 3, height: h, borderRadius: 2, background: '#E6C858' }} />
-              ))}
-            </div>
-            <div style={{ fontSize: 16, fontWeight: 600, marginTop: 16, color: '#1D1D1D' }}>{card.title}</div>
-            <div style={{ fontSize: 13.5, lineHeight: 1.55, color: '#5C5850', marginTop: 8 }}>{card.text}</div>
-          </div>
-        ))}
-      </section>
+      {/* The three-card "how it works" section used to spell out, in longer
+          form, exactly what the hero paragraph above already says in one
+          sentence — same three beats twice in a row before the client even
+          reaches the button. Dropped entirely so the page reads as one
+          clear pitch + one obvious action, instead of a pitch, a repeat of
+          the pitch, then the action. */}
 
-      <footer style={{ maxWidth: 1180, margin: '40px auto 0', padding: '32px 20px 40px', borderTop: '1px solid #E3E0D5' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 32, alignItems: 'start' }} className="tfa-footer-grid">
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            <div className="tfa-footer-heading" style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-              <BrandMark size={15} />
-              TFA
-            </div>
-            <p style={{ fontSize: 12.5, lineHeight: 1.6, color: '#8C8880', margin: 0, maxWidth: 260 }}>
-              Radiocommercials, geproduceerd door Team TFA.
-            </p>
-            <a href="https://tfa.studio" target="_blank" rel="noopener noreferrer" style={{ fontSize: 12.5, fontWeight: 600, color: '#8C6D1F', textDecoration: 'underline', textUnderlineOffset: 2 }}>
-              tfa.studio →
-            </a>
-          </div>
+      <footer style={{ maxWidth: 1180, margin: '0 auto', padding: '56px 20px 40px', borderTop: '1px solid #E3E0D5' }}>
+        <div className="tfa-footer-heading" style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 24 }}>
+          <BrandMark size={15} />
+          TFA
+        </div>
 
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 32, alignItems: 'start' }} className="tfa-footer-grid">
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             <div className="tfa-footer-heading">Contact</div>
             <div style={{ fontSize: 12.5, lineHeight: 1.7, color: '#5C5850' }}>
@@ -110,6 +85,9 @@ export default function HomePage() {
                 <YouTubeIcon />
               </a>
             </div>
+            <a href="https://tfa.studio" target="_blank" rel="noopener noreferrer" style={{ fontSize: 12.5, fontWeight: 600, color: '#8C6D1F', textDecoration: 'underline', textUnderlineOffset: 2 }}>
+              tfa.studio →
+            </a>
           </div>
         </div>
 
@@ -119,9 +97,6 @@ export default function HomePage() {
       </footer>
 
       <style>{`
-        @media (max-width: 820px) {
-          section { grid-template-columns: 1fr !important; }
-        }
         .tfa-cta-hero {
           transition: transform .18s ease, box-shadow .18s ease, background .18s ease;
           box-shadow: 0 0 0 0 rgba(230,200,88,0);
