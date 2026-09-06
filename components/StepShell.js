@@ -165,6 +165,34 @@ export default function StepShell({ briefId, current, brief, subtitle, bigNum, k
     }
   }
 
+  // The logo is the only way back to the public homepage from anywhere in
+  // the flow. On step 1 there's nothing to lose yet, so it just navigates
+  // straight there. From step 2 onward the client has real progress on the
+  // brief — everything autosaves as they go, so nothing is actually at risk
+  // of being lost, but leaving without any warning still reads as "did that
+  // just throw away what I entered?" — so this confirms first and offers
+  // the same copy-link affordance as the sidebar's resume card, in case
+  // they want a way back in later.
+  const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
+  const [leaveCopyState, setLeaveCopyState] = useState('idle');
+
+  function handleLogoClick(e) {
+    if (current > 1) {
+      e.preventDefault();
+      setShowLeaveConfirm(true);
+    }
+  }
+
+  async function copyLeaveLink() {
+    try {
+      await navigator.clipboard.writeText(typeof window !== 'undefined' ? window.location.href : '');
+      setLeaveCopyState('copied');
+    } catch (e) {
+      setLeaveCopyState('error');
+    }
+    setTimeout(() => setLeaveCopyState('idle'), 2200);
+  }
+
   return (
     <div style={{ background: '#DEDCD7', display: 'flex' }} className="tfa-shell">
       {/* The one gold swipe transition in the whole flow: StepShell mounts
@@ -185,7 +213,9 @@ export default function StepShell({ briefId, current, brief, subtitle, bigNum, k
         }}
         className={`tfa-sidebar${railExpanded ? ' tfa-sidebar--expanded' : ''}`}
       >
-        <SpotFlowLogo size={26} variant="dark" className="tfa-sidebar-brand" textClassName="tfa-sidebar-brand-label" />
+        <Link href="/" onClick={handleLogoClick} style={{ textDecoration: 'none' }}>
+          <SpotFlowLogo size={26} variant="dark" className="tfa-sidebar-brand" textClassName="tfa-sidebar-brand-label" />
+        </Link>
         {/* On step 1 the client hasn't had a chance to fill in the company
             name yet (it's the very field this step asks for), so showing a
             "Nog geen bedrijfsnaam" placeholder here reads as if something's
@@ -308,6 +338,45 @@ export default function StepShell({ briefId, current, brief, subtitle, bigNum, k
           {children}
         </div>
       </div>
+
+      {showLeaveConfirm && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          onClick={() => setShowLeaveConfirm(false)}
+          style={{
+            position: 'fixed', inset: 0, background: 'rgba(29,29,29,.55)', zIndex: 500,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20,
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{ background: '#FFFFFF', borderRadius: 14, padding: '26px 28px', maxWidth: 380, width: '100%', boxShadow: '0 20px 60px rgba(29,29,29,.3)' }}
+          >
+            <h3 style={{ fontFamily: "'Playfair Display', Georgia, serif", fontWeight: 600, fontSize: 20, margin: '0 0 8px', color: '#1D1D1D' }}>
+              Terug naar de homepage?
+            </h3>
+            <p style={{ fontSize: 13, lineHeight: 1.6, color: '#5C5850', margin: '0 0 20px' }}>
+              Je voortgang is al automatisch opgeslagen. Kopieer de link om later verder te gaan, of ga direct terug naar de homepage.
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <button type="button" onClick={copyLeaveLink} className="ghost-btn">
+                {leaveCopyState === 'copied' ? '✓ Link gekopieerd' : leaveCopyState === 'error' ? 'Kon niet kopiëren' : 'Kopieer link om later verder te gaan'}
+              </button>
+              <Link href="/" className="btn-primary" style={{ display: 'block', textAlign: 'center', textDecoration: 'none' }}>
+                Ga toch naar de homepage
+              </Link>
+              <button
+                type="button"
+                onClick={() => setShowLeaveConfirm(false)}
+                style={{ border: 'none', background: 'transparent', color: '#8C8880', fontSize: 12.5, cursor: 'pointer', padding: '4px 0' }}
+              >
+                Annuleren
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <style jsx>{`
         /* Base height/overflow live here — NOT inline — specifically so the

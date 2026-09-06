@@ -51,9 +51,9 @@ export default function HomePage() {
           the pitch, then the action. */}
 
       <footer style={{ maxWidth: 1180, margin: '0 auto', padding: '56px 20px 40px', borderTop: '1px solid #E3E0D5' }}>
-        <div style={{ marginBottom: 24 }}>
-          <SpotFlowLogo size={20} variant="light" />
-        </div>
+        {/* No repeated logo here — the header already carries it, and
+            placed above just the Contact/Volg ons columns it read like it
+            belonged to one of them rather than the page as a whole. */}
 
         {/* alignItems: 'end' — not 'start' — so "Volg ons" and "Contact"
             meet at the SAME bottom row instead of both starting level at
