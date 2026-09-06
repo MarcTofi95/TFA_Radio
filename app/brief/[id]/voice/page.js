@@ -170,18 +170,46 @@ export default function VoicePage({ params }) {
     update({ voiceStyleTags: next });
   }
 
+  // Matches the client's answers against each voice's real metadata from
+  // the dashboard library (gender, ageRange, tags) — a producer-set voice
+  // with gender "man" and ageRange "35-54" only shows up here when those
+  // are exactly what the client asked for, instead of every voice in the
+  // library regardless of what was picked in the questions phase.
+  //
+  // If nothing matches every criterion, this relaxes ONE step at a time
+  // (drop tags first, since "character" is the softest preference; then
+  // age; gender is kept as long as possible) rather than silently falling
+  // back to the entire unfiltered pool — and the UI says which criteria it
+  // had to relax, so it never looks like the filtering just isn't working.
   function curatedVoices() {
     const wantGender = form.voiceGender && form.voiceGender !== 'geen-voorkeur' ? form.voiceGender : null;
     const wantAge = form.voiceAgeRange || null;
     const wantTags = form.voiceStyleTags;
-    if (!wantGender && !wantAge && wantTags.length === 0) return voicePool;
-    const filtered = voicePool.filter((v) => {
-      if (wantGender && v.gender !== wantGender) return false;
-      if (wantAge && v.ageRange !== wantAge) return false;
-      if (wantTags.length && !wantTags.some((t) => (v.tags || []).includes(t))) return false;
-      return true;
-    });
-    return filtered.length ? filtered : voicePool;
+
+    function matches({ gender, age, tags }) {
+      return voicePool.filter((v) => {
+        if (gender && v.gender !== wantGender) return false;
+        if (age && v.ageRange !== wantAge) return false;
+        if (tags && wantTags.length && !wantTags.some((t) => (v.tags || []).includes(t))) return false;
+        return true;
+      });
+    }
+
+    if (!wantGender && !wantAge && wantTags.length === 0) {
+      return { voices: voicePool, relaxed: [] };
+    }
+
+    const attempts = [
+      { criteria: { gender: true, age: true, tags: true }, relaxed: [] },
+      { criteria: { gender: true, age: true, tags: false }, relaxed: ['karakter'] },
+      { criteria: { gender: true, age: false, tags: false }, relaxed: ['karakter', 'leeftijd'] },
+      { criteria: { gender: false, age: false, tags: false }, relaxed: ['karakter', 'leeftijd', 'geslacht'] },
+    ];
+    for (const attempt of attempts) {
+      const found = matches(attempt.criteria);
+      if (found.length) return { voices: found, relaxed: attempt.relaxed };
+    }
+    return { voices: voicePool, relaxed: ['karakter', 'leeftijd', 'geslacht'] };
   }
 
   function selectVoice(voice) {
@@ -295,9 +323,16 @@ export default function VoicePage({ params }) {
             <div style={{ background: '#FBF3F1', border: '1px solid #C2513F', borderRadius: 10, padding: '12px 14px', fontSize: 12.5, color: '#C2513F' }}>
               TFA heeft nog geen stemmen in de bibliotheek gezet. Neem contact op met je producer.
             </div>
-          ) : (
+          ) : (() => {
+            // Deliberately not surfaced to the client — see the comment on
+            // curatedVoices(). Telling them "nothing matched your age/
+            // character preference" tends to make them reject a perfectly
+            // good voice on principle, even when it's genuinely the closest
+            // fit. The relaxation still happens silently underneath.
+            const { voices: shortlist } = curatedVoices();
+            return (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              {curatedVoices().map((voice) => {
+              {shortlist.map((voice) => {
                 const isSelected = form.selectedVoiceId === voice.id;
                 const isPlaying = playingId === voice.id;
                 return (
@@ -349,7 +384,8 @@ export default function VoicePage({ params }) {
                 );
               })}
             </div>
-          )}
+            );
+          })()}
           <div style={{ marginTop: 18 }}>
             <a href="#" onClick={(e) => { e.preventDefault(); stopAudio(); setPlayingId(null); setPhase('questions'); }} style={{ fontSize: 12, color: '#8C8880', textDecoration: 'underline' }}>← Terug naar de vragen</a>
           </div>

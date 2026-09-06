@@ -125,14 +125,31 @@ export default function OverviewPage({ params }) {
     );
   }
 
-  const cardStyle = { background: '#FBF9EC', border: '1.5px solid #EAE3C4', borderLeft: '4px solid #E6C858', borderRadius: '4px 14px 14px 4px', padding: '22px 24px', marginBottom: 14 };
+  // Three sizes of the same "box on its own" card, so the review reads as a
+  // hierarchy instead of a flat stack of identical blocks: the admin-y
+  // details (contact/delivery) are compact and side by side, the actual
+  // creative deliverable (script) is the visual centerpiece with a bigger
+  // heading and a soft gold glow, and stem/muziek sit in between — full
+  // width like the script (so a single card never dead-ends halfway across
+  // the row the way "Stem" used to when it had no partner card beside it).
+  const cardBase = { background: '#FBF9EC', border: '1.5px solid #EAE3C4', borderLeft: '4px solid #E6C858', borderRadius: '4px 14px 14px 4px' };
+  const compactCardStyle = { ...cardBase, padding: '16px 18px', marginBottom: 14 };
+  const standardCardStyle = { ...cardBase, padding: '22px 24px', marginBottom: 14 };
+  const featureCardStyle = {
+    ...cardBase, padding: '30px 32px', marginBottom: 18,
+    border: '1.5px solid #E6C858', borderLeft: '5px solid #E6C858',
+    boxShadow: '0 6px 24px rgba(230,200,88,.22)',
+  };
+  const compactHeaderStyle = { fontSize: 13.5, fontWeight: 600, color: '#5C5850' };
+  const standardHeaderStyle = { fontSize: 16, fontWeight: 600 };
+  const featureHeaderStyle = { fontSize: 19, fontWeight: 700 };
 
   return (
     <StepShell briefId={id} current={7} brief={brief} bigNum="07" kicker="Jouw mandje" title="Alles op een rij" hint="Het script, de stem en de muziek die je hebt gekozen — dit is wat TFA gaat opnemen en produceren." backHref={`/brief/${id}/music`} backLabel="Terug naar de muziek">
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 16px' }} className="tfa-overview-grid">
-        <div style={cardStyle}>
+        <div style={compactCardStyle}>
           <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <div style={{ fontSize: 16, fontWeight: 600 }}>Jouw gegevens</div>
+            <div style={compactHeaderStyle}>Jouw gegevens</div>
             <a href={`/brief/${id}/contact`} style={{ fontSize: 11, fontWeight: 600, textDecoration: 'underline' }}>Wijzig</a>
           </div>
           <div style={{ fontSize: 13, marginTop: 9 }}>{companyName}</div>
@@ -140,9 +157,9 @@ export default function OverviewPage({ params }) {
           <div style={{ fontSize: 13, marginTop: 2, color: brief.contactEmail ? '#1D1D1D' : '#9C9890' }}>{brief.contactEmail || 'Nog geen e-mailadres opgegeven'}</div>
         </div>
 
-        <div style={cardStyle}>
+        <div style={compactCardStyle}>
           <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <div style={{ fontSize: 16, fontWeight: 600 }}>Levering</div>
+            <div style={compactHeaderStyle}>Levering</div>
             <a href={`/brief/${id}/delivery`} style={{ fontSize: 11, fontWeight: 600, textDecoration: 'underline' }}>Wijzig</a>
           </div>
           <div style={{ fontSize: 13, marginTop: 9 }}>Hoofdspot · {spotLength}″{brief.needsVariations ? ' + variatie' : ''}</div>
@@ -150,12 +167,12 @@ export default function OverviewPage({ params }) {
           <div style={{ fontSize: 13, marginTop: 2 }}>Eerste uitzending: {formatAirDate(brief)}</div>
         </div>
 
-        <div style={{ ...cardStyle, gridColumn: '1 / -1' }}>
+        <div style={{ ...featureCardStyle, gridColumn: '1 / -1' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <div style={{ fontSize: 16, fontWeight: 600 }}>Script · hoofdspot {spotLength}″</div>
+            <div style={featureHeaderStyle}>Script · hoofdspot {spotLength}″</div>
             <a href={`/brief/${id}/script`} style={{ fontSize: 11, fontWeight: 600, textDecoration: 'underline' }}>Wijzig</a>
           </div>
-          <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontStyle: mainText ? 'italic' : 'normal', fontSize: 16.5, lineHeight: 1.65, marginTop: 14, color: mainText ? '#1D1D1D' : '#9C9890' }}>
+          <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontStyle: mainText ? 'italic' : 'normal', fontSize: 17.5, lineHeight: 1.7, marginTop: 16, color: mainText ? '#1D1D1D' : '#9C9890' }}>
             {mainText || 'Nog geen script goedgekeurd.'}
           </div>
           {brief.needsVariations && varText && (() => {
@@ -180,9 +197,9 @@ export default function OverviewPage({ params }) {
           })()}
         </div>
 
-        <div style={cardStyle}>
+        <div style={{ ...standardCardStyle, gridColumn: '1 / -1' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <div style={{ fontSize: 16, fontWeight: 600 }}>Stem</div>
+            <div style={standardHeaderStyle}>Stem</div>
             <a href={`/brief/${id}/voice`} style={{ fontSize: 11, fontWeight: 600, textDecoration: 'underline' }}>Wijzig</a>
           </div>
           <div style={{ fontSize: 13, marginTop: 9, color: voiceLabel ? '#1D1D1D' : '#9C9890' }}>
@@ -197,9 +214,9 @@ export default function OverviewPage({ params }) {
           )}
         </div>
 
-        <div style={{ ...cardStyle, gridColumn: '1 / -1' }}>
+        <div style={{ ...standardCardStyle, gridColumn: '1 / -1' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <div style={{ fontSize: 16, fontWeight: 600 }}>Muziek</div>
+            <div style={standardHeaderStyle}>Muziek</div>
             <a href={`/brief/${id}/music`} style={{ fontSize: 11, fontWeight: 600, textDecoration: 'underline' }}>Wijzig</a>
           </div>
           {hasTracks ? (

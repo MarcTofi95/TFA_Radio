@@ -23,16 +23,16 @@ export default async function DashboardPage() {
     <div style={{ minHeight: '100vh', background: '#DEDCD7', display: 'flex' }} className="tfa-dash-shell">
       <aside
         style={{
-          flex: '0 0 240px', background: '#1D1D1D', color: '#FFFFFF', minHeight: '100vh', padding: '32px 22px',
+          flex: '0 0 240px', background: '#1D1D1D', color: '#FFFFFF', padding: '32px 22px',
           display: 'flex', flexDirection: 'column',
         }}
         className="tfa-dash-sidebar"
       >
-        <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, letterSpacing: '.09em', textTransform: 'uppercase', color: '#E6C858', fontWeight: 500, textDecoration: 'none' }}>
+        <Link href="/" className="tfa-dash-sidebar-brand" style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, letterSpacing: '.09em', textTransform: 'uppercase', color: '#E6C858', fontWeight: 500, textDecoration: 'none' }}>
           <BrandMark size={22} />
           TFA
         </Link>
-        <nav style={{ marginTop: 32, display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <nav className="tfa-dash-nav" style={{ marginTop: 32, display: 'flex', flexDirection: 'column', gap: 4 }}>
           <Link href="/dashboard" className="tfa-dash-navlink tfa-dash-navlink--active" style={{ padding: '10px 12px', borderRadius: 8, background: 'rgba(230,200,88,.12)', color: '#FFFFFF', fontWeight: 600, fontSize: 14, textDecoration: 'none' }}>
             Dashboard
           </Link>
@@ -46,7 +46,7 @@ export default async function DashboardPage() {
             Rapporten
           </Link>
         </nav>
-        <div style={{ marginTop: 'auto', paddingTop: 20, borderTop: '1px solid #33301F', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div className="tfa-dash-footer" style={{ marginTop: 'auto', paddingTop: 20, borderTop: '1px solid #33301F', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <span style={{ fontSize: 13, color: '#B9B6AC' }}>Uitloggen</span>
           <HeaderUser />
         </div>
@@ -60,9 +60,20 @@ export default async function DashboardPage() {
       </main>
 
       <style>{`
+        /* Base min-height lives here (not inline) specifically so the
+           mobile override below can actually win — an inline min-height on
+           the <aside> used to silently defeat this same media query, which
+           left the mobile nav bar forced to a full 100vh tall, pushing
+           every page's real content below the fold. */
+        .tfa-dash-sidebar { min-height: 100vh; }
         @media (max-width: 900px) {
           .tfa-dash-shell { flex-direction: column; }
-          .tfa-dash-sidebar { flex: none; width: 100%; min-height: auto; }
+          .tfa-dash-sidebar {
+            flex: none; width: 100%; min-height: auto; padding: 14px 16px !important;
+          }
+          .tfa-dash-sidebar-brand { display: none; }
+          .tfa-dash-nav { flex-direction: row !important; flex-wrap: wrap; margin-top: 0 !important; gap: 6px !important; }
+          .tfa-dash-footer { display: none; }
         }
         .tfa-dash-navlink { transition: background .15s ease, color .15s ease; }
         .tfa-dash-navlink:hover { background: rgba(255,255,255,.08); color: #FFFFFF; }

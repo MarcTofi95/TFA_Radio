@@ -307,12 +307,26 @@ function formatTime(sec) {
 // tiny and cramped on the right). Play/pause, a scrubber you can drag, a
 // current/total time readout, and ±5s skip buttons for quickly checking a
 // specific moment in a track or voice demo.
-function AudioPlayer({ src }) {
+//
+// autoPlay: starts playback the instant this mounts, so opening the preview
+// (clicking "Beluister") and actually hearing it is one click instead of
+// two — previously the row's button only revealed this player, and you
+// still had to press its own play button separately.
+function AudioPlayer({ src, autoPlay }) {
   const audioRef = useRef(null);
   const rafRef = useRef(null);
   const [playing, setPlaying] = useState(false);
   const [current, setCurrent] = useState(0);
   const [duration, setDuration] = useState(0);
+
+  useEffect(() => {
+    if (autoPlay && audioRef.current) {
+      const p = audioRef.current.play();
+      if (p && typeof p.catch === 'function') p.catch(() => {});
+    }
+    // Only on mount — this player is only ever mounted fresh per open.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Poll currentTime via requestAnimationFrame while playing instead of
   // relying on the <audio> element's own `timeupdate` event, which browsers
@@ -393,9 +407,12 @@ function AudioPlayer({ src }) {
   );
 }
 
-function TrackRow({ track, categories, selected, onToggleSelect }) {
+function TrackRow({ track, categories, selected, onToggleSelect, activePreviewId, onTogglePreview }) {
   const [editing, setEditing] = useState(false);
-  const [previewOpen, setPreviewOpen] = useState(false);
+  // Which row's preview is open lives in the parent (BrowsePanel), shared
+  // across every row in the list, so opening one row's preview stops
+  // whichever other one was playing instead of letting several play at once.
+  const previewOpen = activePreviewId === track.id;
 
   if (editing) {
     return (
@@ -443,13 +460,13 @@ function TrackRow({ track, categories, selected, onToggleSelect }) {
         {track.audioUrl ? (
           <button
             type="button"
-            onClick={() => setPreviewOpen((o) => !o)}
+            onClick={() => onTogglePreview(track.id)}
             style={{
               border: '1px solid ' + (previewOpen ? '#E6C858' : '#C9C5B9'), background: previewOpen ? 'rgba(230,200,88,.14)' : '#FFFFFF',
               color: '#1D1D1D', cursor: 'pointer', fontSize: 12, borderRadius: 8, padding: '7px 12px', display: 'flex', alignItems: 'center', gap: 6,
             }}
           >
-            ▶ {previewOpen ? 'Verberg preview' : 'Beluister'}
+            {previewOpen ? '❚❚ Stop' : '▶ Beluister'}
           </button>
         ) : (
           <div style={{ fontSize: 11.5, color: '#B9B6AC', fontStyle: 'italic' }}>Geen audio geüpload</div>
@@ -467,15 +484,21 @@ function TrackRow({ track, categories, selected, onToggleSelect }) {
           </button>
         </form>
       </div>
-      {previewOpen && track.audioUrl && <AudioPlayer src={track.audioUrl} />}
+      {/* One click both opens and starts playback (AudioPlayer's autoPlay) —
+          previously "Beluister" only revealed the player and still required
+          a second press on its own play button, which read as one press
+          too many. Metadata above stays visible the whole time either way. */}
+      {previewOpen && track.audioUrl && <AudioPlayer src={track.audioUrl} autoPlay />}
     </div>
   );
 }
 
-function VoiceRow({ voice, allTags, onAddTag, selected, onToggleSelect }) {
+function VoiceRow({ voice, allTags, onAddTag, selected, onToggleSelect, activePreviewId, onTogglePreview }) {
   const [editing, setEditing] = useState(false);
   const [editTags, setEditTags] = useState(voice.tags || []);
-  const [previewOpen, setPreviewOpen] = useState(false);
+  // See TrackRow's identical comment above — preview-open state is shared
+  // across the whole list via the parent, not local to this row.
+  const previewOpen = activePreviewId === voice.id;
 
   if (editing) {
     return (
@@ -530,13 +553,13 @@ function VoiceRow({ voice, allTags, onAddTag, selected, onToggleSelect }) {
         {voice.audioUrl ? (
           <button
             type="button"
-            onClick={() => setPreviewOpen((o) => !o)}
+            onClick={() => onTogglePreview(voice.id)}
             style={{
               border: '1px solid ' + (previewOpen ? '#E6C858' : '#C9C5B9'), background: previewOpen ? 'rgba(230,200,88,.14)' : '#FFFFFF',
               color: '#1D1D1D', cursor: 'pointer', fontSize: 12, borderRadius: 8, padding: '7px 12px', display: 'flex', alignItems: 'center', gap: 6,
             }}
           >
-            ▶ {previewOpen ? 'Verberg preview' : 'Beluister'}
+            {previewOpen ? '❚❚ Stop' : '▶ Beluister'}
           </button>
         ) : (
           <div style={{ fontSize: 11.5, color: '#B9B6AC', fontStyle: 'italic' }}>Geen audio geüpload</div>
@@ -554,7 +577,10 @@ function VoiceRow({ voice, allTags, onAddTag, selected, onToggleSelect }) {
           </button>
         </form>
       </div>
-      {previewOpen && voice.audioUrl && <AudioPlayer src={voice.audioUrl} />}
+      {/* Same one-click play as TrackRow above — see its comment. Voice
+          metadata (gender, age range, tags) stays fully visible in the row
+          the whole time, autoPlay only affects the dropdown player itself. */}
+      {previewOpen && voice.audioUrl && <AudioPlayer src={voice.audioUrl} autoPlay />}
     </div>
   );
 }
@@ -564,6 +590,14 @@ function VoiceRow({ voice, allTags, onAddTag, selected, onToggleSelect }) {
 // what's already there" read as two distinct tools instead of one long,
 // blurred scroll.
 function BrowsePanel({ kind, items, categories, allTags, onAddTag, selectedIds, setSelectedIds, onBulkDelete, bulkBusy, query, setQuery }) {
+  // Only one row's preview plays at a time — opening another row's preview
+  // (music or voice) stops whichever one was already playing, the same way
+  // the client-facing voice/music picker steps behave.
+  const [activePreviewId, setActivePreviewId] = useState(null);
+  function toggleActivePreview(id) {
+    setActivePreviewId((cur) => (cur === id ? null : id));
+  }
+
   const filtered = items.filter((it) => {
     const q = query.trim().toLowerCase();
     if (!q) return true;
@@ -624,9 +658,9 @@ function BrowsePanel({ kind, items, categories, allTags, onAddTag, selectedIds, 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         {filtered.map((it) => (
           kind === 'music' ? (
-            <TrackRow key={it.id} track={it} categories={categories} selected={selectedIds.has(it.id)} onToggleSelect={toggleOne} />
+            <TrackRow key={it.id} track={it} categories={categories} selected={selectedIds.has(it.id)} onToggleSelect={toggleOne} activePreviewId={activePreviewId} onTogglePreview={toggleActivePreview} />
           ) : (
-            <VoiceRow key={it.id} voice={it} allTags={allTags} onAddTag={onAddTag} selected={selectedIds.has(it.id)} onToggleSelect={toggleOne} />
+            <VoiceRow key={it.id} voice={it} allTags={allTags} onAddTag={onAddTag} selected={selectedIds.has(it.id)} onToggleSelect={toggleOne} activePreviewId={activePreviewId} onTogglePreview={toggleActivePreview} />
           )
         ))}
         {filtered.length === 0 && items.length > 0 && (

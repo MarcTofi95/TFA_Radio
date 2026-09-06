@@ -75,12 +75,12 @@ export default async function ReportsPage() {
 
   return (
     <div style={{ minHeight: '100vh', background: '#DEDCD7', display: 'flex' }} className="tfa-dash-shell">
-      <aside style={{ flex: '0 0 240px', background: '#1D1D1D', color: '#FFFFFF', minHeight: '100vh', padding: '32px 22px' }} className="tfa-dash-sidebar">
-        <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, letterSpacing: '.09em', textTransform: 'uppercase', color: '#E6C858', fontWeight: 500, textDecoration: 'none' }}>
+      <aside style={{ flex: '0 0 240px', background: '#1D1D1D', color: '#FFFFFF', padding: '32px 22px' }} className="tfa-dash-sidebar">
+        <Link href="/" className="tfa-dash-sidebar-brand" style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, letterSpacing: '.09em', textTransform: 'uppercase', color: '#E6C858', fontWeight: 500, textDecoration: 'none' }}>
           <BrandMark size={22} />
           TFA
         </Link>
-        <nav style={{ marginTop: 32, display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <nav className="tfa-dash-nav" style={{ marginTop: 32, display: 'flex', flexDirection: 'column', gap: 4 }}>
           <Link href="/dashboard" className="tfa-dash-navlink" style={{ padding: '10px 12px', borderRadius: 8, color: '#B9B6AC', fontSize: 14, textDecoration: 'none' }}>Dashboard</Link>
           <Link href="/dashboard/library" className="tfa-dash-navlink" style={{ padding: '10px 12px', borderRadius: 8, color: '#B9B6AC', fontSize: 14, textDecoration: 'none' }}>Bibliotheek</Link>
           <Link href="/dashboard/prompt" className="tfa-dash-navlink" style={{ padding: '10px 12px', borderRadius: 8, color: '#B9B6AC', fontSize: 14, textDecoration: 'none' }}>AI-prompt</Link>
@@ -147,9 +147,18 @@ export default async function ReportsPage() {
       </main>
 
       <style>{`
+        /* See the identical comment in app/dashboard/page.js — base
+           min-height lives here, not inline, so the mobile override below
+           actually takes effect instead of being silently defeated. */
+        .tfa-dash-sidebar { min-height: 100vh; }
         @media (max-width: 900px) {
           .tfa-dash-shell { flex-direction: column; }
-          .tfa-dash-sidebar { flex: none; width: 100%; min-height: auto; }
+          .tfa-dash-sidebar {
+            flex: none; width: 100%; min-height: auto; padding: 14px 16px !important;
+          }
+          .tfa-dash-sidebar-brand { display: none; }
+          .tfa-dash-nav { flex-direction: row !important; flex-wrap: wrap; margin-top: 0 !important; gap: 6px !important; }
+          .tfa-dash-footer { display: none; }
         }
         @media (max-width: 1100px) {
           .tfa-stats-grid { grid-template-columns: repeat(2, 1fr) !important; }

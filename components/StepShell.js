@@ -116,12 +116,16 @@ function ResumeCard({ briefId, defaultEmail }) {
 // panel scrolls internally when a step's form is taller than the viewport,
 // so the dark sidebar never looks shorter/taller than the content next to
 // it and never scrolls out of view itself.
+//
+// On a narrow (<=900px) screen the sidebar stays down the LEFT EDGE as a
+// slim step-number rail instead of stacking full-width above the form —
+// see the mobile media query below for why and how.
 export default function StepShell({ briefId, current, brief, subtitle, bigNum, kicker, title, hint, backHref, backLabel, children }) {
   const reached = computeReached(brief);
   const companyName = brief && brief.companyName && brief.companyName.trim() ? brief.companyName : null;
 
   return (
-    <div style={{ height: '100vh', background: '#DEDCD7', display: 'flex', overflow: 'hidden' }} className="tfa-shell">
+    <div style={{ background: '#DEDCD7', display: 'flex' }} className="tfa-shell">
       {/* The one gold swipe transition in the whole flow: StepShell mounts
           exactly once per step (unlike Preloader, which mounts twice per
           transition — see the comment in Preloader.js), so this is the
@@ -133,22 +137,25 @@ export default function StepShell({ briefId, current, brief, subtitle, bigNum, k
       <span className="tfa-shell-wipe" aria-hidden="true" />
       <div
         style={{
-          flex: '0 0 300px', height: '100%', background: '#1D1D1D', color: '#FFFFFF', padding: '36px 26px',
-          display: 'flex', flexDirection: 'column', overflowY: 'auto',
+          flex: '0 0 300px', background: '#1D1D1D', color: '#FFFFFF', padding: '36px 26px',
+          display: 'flex', flexDirection: 'column',
         }}
         className="tfa-sidebar"
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, letterSpacing: '.09em', textTransform: 'uppercase', color: '#E6C858', fontWeight: 500 }}>
+        <div className="tfa-sidebar-brand" style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, letterSpacing: '.09em', textTransform: 'uppercase', color: '#E6C858', fontWeight: 500 }}>
           <BrandMark size={22} />
-          TFA
+          <span className="tfa-sidebar-brand-label">TFA</span>
         </div>
         {/* On step 1 the client hasn't had a chance to fill in the company
             name yet (it's the very field this step asks for), so showing a
             "Nog geen bedrijfsnaam" placeholder here reads as if something's
             missing before they've even started. It only starts appearing
-            from step 2 onward, once the name has actually been saved. */}
+            from step 2 onward, once the name has actually been saved.
+            Also hidden on the mobile rail (tfa-sidebar-extra) — see the
+            comment on the rail's CSS below for why. */}
         {current !== 1 && (
           <h1
+            className="tfa-sidebar-extra"
             style={{
               fontFamily: "'Playfair Display', Georgia, serif", fontWeight: 600, fontSize: 24,
               color: companyName ? '#FFFFFF' : '#8C897E', margin: '16px 0 0', lineHeight: 1.3,
@@ -157,9 +164,9 @@ export default function StepShell({ briefId, current, brief, subtitle, bigNum, k
             {companyName || 'Nog geen bedrijfsnaam'}
           </h1>
         )}
-        {subtitle ? <div style={{ fontSize: 11.5, color: '#B9B6AC', marginTop: 4 }}>{subtitle}</div> : null}
+        {subtitle ? <div className="tfa-sidebar-extra" style={{ fontSize: 11.5, color: '#B9B6AC', marginTop: 4 }}>{subtitle}</div> : null}
 
-        <div style={{ marginTop: 28, display: 'flex', flexDirection: 'column', gap: 1 }}>
+        <div className="tfa-step-nav" style={{ marginTop: 28, display: 'flex', flexDirection: 'column', gap: 1 }}>
           {STEPS.map((step) => {
             const isCurrent = step.n === current;
             const isDone = !isCurrent && (step.n < current || !!reached[step.n]);
@@ -178,13 +185,21 @@ export default function StepShell({ briefId, current, brief, subtitle, bigNum, k
             const labelStyle = isCurrent
               ? { fontSize: 16.5, color: '#FFFFFF', fontWeight: 600 }
               : { fontSize: 14.5, color: isDone ? '#D8D5CB' : '#8C8880' };
+            // On the mobile rail (see CSS below), the wave icon and text
+            // label disappear and only this number is left — dressed up as
+            // a small circle (filled gold for the current step, gold
+            // outline for a completed one you can tap back into, dim
+            // outline for one you haven't reached yet) so the rail still
+            // reads as a step tracker at a glance, not just a column of
+            // numbers.
+            const numStateClass = isCurrent ? 'tfa-step-num--current' : isDone ? 'tfa-step-num--done' : 'tfa-step-num--upcoming';
             const inner = (
               <>
-                <WaveIcon dim={!isCurrent && !isDone} />
-                <span style={{ fontSize: 12, width: 16, flex: 'none', fontWeight: 500, color: numColor }}>
+                <span className="tfa-step-wave"><WaveIcon dim={!isCurrent && !isDone} /></span>
+                <span className={`tfa-step-num ${numStateClass}`} style={{ fontSize: 12, width: 16, flex: 'none', fontWeight: 500, color: numColor }}>
                   {String(step.n).padStart(2, '0')}
                 </span>
-                <span style={labelStyle}>{step.label}</span>
+                <span className="tfa-step-label" style={labelStyle}>{step.label}</span>
               </>
             );
             if (isDone && briefId) {
@@ -202,7 +217,7 @@ export default function StepShell({ briefId, current, brief, subtitle, bigNum, k
           })}
         </div>
 
-        <div style={{ display: 'flex', gap: 6, alignItems: 'flex-end', margin: '24px 0' }}>
+        <div className="tfa-sidebar-extra" style={{ display: 'flex', gap: 6, alignItems: 'flex-end', margin: '24px 0' }}>
           {[6, 10, 14, 10, 6].map((h, i) => (
             <span key={i} style={{ display: 'block', width: 3, height: h, borderRadius: 2, background: '#E6C858', opacity: 0.55 }} />
           ))}
@@ -210,9 +225,12 @@ export default function StepShell({ briefId, current, brief, subtitle, bigNum, k
 
         {/* Replaces the old "Team TFA" contact card that used to sit here —
             a static blurb with nothing actionable in it. The autosave/resume
-            card is more useful in this bottom-of-sidebar spot. */}
+            card is more useful in this bottom-of-sidebar spot. Hidden on the
+            mobile rail (there's no room, and it's not step-navigation) —
+            autosave still runs exactly the same either way, the client just
+            can't copy/email the resume link from here on a small screen. */}
         {brief && briefId && (
-          <div style={{ marginTop: 'auto', paddingTop: 20, borderTop: '1px solid #33301F' }}>
+          <div className="tfa-sidebar-extra" style={{ marginTop: 'auto', paddingTop: 20, borderTop: '1px solid #33301F' }}>
             <ResumeCard briefId={briefId} defaultEmail={brief.contactEmail} />
           </div>
         )}
@@ -220,8 +238,8 @@ export default function StepShell({ briefId, current, brief, subtitle, bigNum, k
 
       <div
         style={{
-          flex: 1, minWidth: 0, height: '100%', background: '#FFFFFF', padding: '56px 60px',
-          position: 'relative', overflowY: 'auto',
+          flex: 1, minWidth: 0, background: '#FFFFFF', padding: '56px 60px',
+          position: 'relative',
         }}
         className="tfa-content"
       >
@@ -252,6 +270,32 @@ export default function StepShell({ briefId, current, brief, subtitle, bigNum, k
       </div>
 
       <style jsx>{`
+        /* Base height/overflow live here — NOT inline — specifically so the
+           mobile rules below can actually override them. An inline height/
+           overflow on these same three elements used to silently defeat
+           this exact media query (inline always beats a plain stylesheet
+           rule for the same property), which is what caused the
+           inconsistent "can't scroll" behavior on phones: .tfa-content kept
+           trying to be its own fixed-height, independently-scrolling panel
+           inside a hard 100dvh shell no matter what the media query said.
+           100dvh (dynamic viewport height) is used ahead of 100vh so the
+           shell doesn't mis-size itself when a mobile browser's address bar
+           shows/hides mid-scroll — browsers that don't understand dvh yet
+           just ignore that line and keep the vh value above it. */
+        .tfa-shell {
+          height: 100vh;
+          height: 100dvh;
+          overflow: hidden;
+        }
+        .tfa-sidebar {
+          height: 100%;
+          overflow-y: auto;
+        }
+        .tfa-content {
+          height: 100%;
+          overflow-y: auto;
+          -webkit-overflow-scrolling: touch;
+        }
         .tfa-shell-wipe {
           position: fixed;
           inset: 0;
@@ -264,22 +308,63 @@ export default function StepShell({ briefId, current, brief, subtitle, bigNum, k
           0% { transform: translateX(0%); }
           100% { transform: translateX(100%); }
         }
+        /* Mobile: the sidebar stays a LEFT-EDGE RAIL rather than stacking
+           full-width on top of the form (which used to shove every step's
+           form below a tall block of nav — the client's actual complaint).
+           It shrinks to a slim strip of just the step numbers — brand
+           label, company name, subtitle, decorative bars and the resume
+           card all step aside (tfa-sidebar-extra) since there's no room and
+           none of it is step-navigation — so the rail stays "visible but
+           out of the way" while every step (including the current one) is
+           still one tap away. */
         @media (max-width: 900px) {
-          .tfa-shell {
-            flex-direction: column;
-            height: auto;
-            overflow: visible;
-          }
           .tfa-sidebar {
-            flex: none;
+            flex: 0 0 64px !important;
+            padding: 18px 6px !important;
+            align-items: center;
+          }
+          .tfa-sidebar-brand-label,
+          .tfa-sidebar-extra {
+            display: none;
+          }
+          .tfa-step-nav {
             width: 100%;
-            height: auto;
-            overflow: visible;
+            margin-top: 20px !important;
+            gap: 6px !important;
+          }
+          .tfa-step-item {
+            justify-content: center;
+            padding: 4px 0 !important;
+            border-radius: 8px !important;
+            border-left: none !important;
+          }
+          .tfa-step-wave,
+          .tfa-step-label {
+            display: none;
+          }
+          .tfa-step-num {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11.5px !important;
+          }
+          .tfa-step-num--current {
+            background: #E6C858;
+            color: #1D1D1D !important;
+          }
+          .tfa-step-num--done {
+            border: 1.5px solid #E6C858;
+            color: #E6C858 !important;
+          }
+          .tfa-step-num--upcoming {
+            border: 1.5px solid #514E44;
+            color: #77746A !important;
           }
           .tfa-content {
-            height: auto;
-            overflow: visible;
-            padding: 32px 24px;
+            padding: 28px 20px !important;
           }
         }
         .tfa-step-item {
