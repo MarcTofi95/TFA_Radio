@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { variationsSummaryLabel } from './flowData';
 
 const RANGES = [
   { key: '7d', label: 'Laatste week' },
@@ -421,7 +422,7 @@ export default function DashboardClient({ briefs }) {
               <div style={modalCardStyle}>
                 <ModalSectionTitle>Levering</ModalSectionTitle>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  <Field label="Hoofdspot">{selected.hoofdspotLength || '20'}″{selected.needsVariations ? ' + variatie' : ''}</Field>
+                  <Field label="Hoofdspot">{selected.hoofdspotLength || '20'}″{variationsSummaryLabel(selected)}</Field>
                   <Field label="Aangemaakt">{new Date(selected.createdAt).toLocaleString('nl-NL')}</Field>
                   {selected.submittedAt && <Field label="Verzonden">{new Date(selected.submittedAt).toLocaleString('nl-NL')}</Field>}
                 </div>

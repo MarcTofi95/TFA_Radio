@@ -5,8 +5,17 @@ import StepShell from '../../../../components/StepShell';
 import Preloader from '../../../../components/Preloader';
 import useMinDelay from '../../../../components/useMinDelay';
 import { useBrief } from '../../../../components/useBrief';
-import { MONTH_NAMES_LOWER } from '../../../../components/flowData';
-import { diffWords, hasDiff, DiffText } from '../../../../components/textDiff';
+import { MONTH_NAMES_LOWER, variationsCountOf } from '../../../../components/flowData';
+import { diffWords, hasDiff, DiffPreview } from '../../../../components/textDiff';
+
+function parseVariationScripts(brief) {
+  try {
+    const parsed = brief && brief.variationScripts ? JSON.parse(brief.variationScripts) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (e) {
+    return [];
+  }
+}
 
 function formatImpressions(brief) {
   const v = brief.impressions;
@@ -91,7 +100,8 @@ export default function OverviewPage({ params }) {
   }
   const spotLength = brief.hoofdspotLength || '20';
   const mainText = brief.editedScript !== null && brief.editedScript !== undefined ? brief.editedScript : brief.generatedScript || '';
-  const varText = brief.editedVarScript !== null && brief.editedVarScript !== undefined ? brief.editedVarScript : brief.generatedVarScript || '';
+  const variationCount = variationsCountOf(brief);
+  const variationScripts = parseVariationScripts(brief);
   const voiceLabel = brief.selectedVoiceLabel || '';
   const voiceTags = brief.selectedVoiceTags ? brief.selectedVoiceTags.split(',').filter(Boolean) : [];
   let selectedTracks = [];
@@ -236,7 +246,7 @@ export default function OverviewPage({ params }) {
             <div style={compactHeaderStyle}>Levering</div>
             <a href={`/brief/${id}/delivery`} style={{ fontSize: 11, fontWeight: 600, textDecoration: 'underline' }}>Wijzig</a>
           </div>
-          <div style={{ fontSize: 13, marginTop: 9 }}>Hoofdspot · {spotLength}″{brief.needsVariations ? ' + variatie' : ''}</div>
+          <div style={{ fontSize: 13, marginTop: 9 }}>Hoofdspot · {spotLength}″{variationCount > 0 ? (variationCount === 1 ? ' + 1 variatie' : ` + ${variationCount} variaties`) : ''}</div>
           <div style={{ fontSize: 13, marginTop: 2 }}>{formatImpressions(brief)}</div>
           <div style={{ fontSize: 13, marginTop: 2 }}>Eerste uitzending: {formatAirDate(brief)}</div>
         </div>
@@ -249,26 +259,31 @@ export default function OverviewPage({ params }) {
           <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontStyle: mainText ? 'italic' : 'normal', fontSize: 17.5, lineHeight: 1.7, marginTop: 16, color: mainText ? '#1D1D1D' : '#9C9890' }}>
             {mainText || 'Nog geen script goedgekeurd.'}
           </div>
-          {brief.needsVariations && varText && (() => {
-            const tokens = diffWords(mainText, varText);
-            const changed = hasDiff(tokens);
-            return (
-              <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid #EAE3C4' }}>
-                <div style={{ fontSize: 11.5, fontWeight: 600, color: '#5C5850', textTransform: 'uppercase' }}>
-                  Variatie {changed ? '— wat verschilt' : ''}
-                </div>
-                {changed ? (
-                  <div style={{ fontSize: 15, lineHeight: 1.7, marginTop: 6 }}>
-                    <DiffText tokens={tokens} />
+          {variationCount > 0 && (
+            <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid #EAE3C4' }}>
+              {Array.from({ length: variationCount }).map((_, idx) => {
+                const varText = variationScripts[idx] !== undefined ? variationScripts[idx] : mainText;
+                const tokens = diffWords(mainText, varText);
+                const changed = hasDiff(tokens);
+                return (
+                  <div key={idx} style={{ marginTop: idx === 0 ? 0 : 14 }}>
+                    <div style={{ fontSize: 11.5, fontWeight: 600, color: '#5C5850', textTransform: 'uppercase' }}>
+                      {variationCount > 1 ? `Variatie ${idx + 1}` : 'Variatie'}{changed ? ' — wat verschilt' : ''}
+                    </div>
+                    {changed ? (
+                      <div style={{ fontSize: 15, lineHeight: 1.7, marginTop: 6 }}>
+                        <DiffPreview tokens={tokens} />
+                      </div>
+                    ) : (
+                      <div style={{ fontSize: 13, color: '#8C8880', marginTop: 6, fontStyle: 'italic' }}>
+                        Nog identiek aan het hoofdscript.
+                      </div>
+                    )}
                   </div>
-                ) : (
-                  <div style={{ fontSize: 13, color: '#8C8880', marginTop: 6, fontStyle: 'italic' }}>
-                    Nog identiek aan het hoofdscript.
-                  </div>
-                )}
-              </div>
-            );
-          })()}
+                );
+              })}
+            </div>
+          )}
         </div>
 
         <div style={{ ...standardCardStyle, gridColumn: '1 / -1' }}>
@@ -276,9 +291,14 @@ export default function OverviewPage({ params }) {
             <div style={standardHeaderStyle}>Stem</div>
             <a href={`/brief/${id}/voice`} style={{ fontSize: 11, fontWeight: 600, textDecoration: 'underline' }}>Wijzig</a>
           </div>
-          <div style={{ fontSize: 13, marginTop: 9, color: voiceLabel ? '#1D1D1D' : '#9C9890' }}>
-            {voiceLabel ? voiceLabel + (voiceTags.length ? ' · ' + voiceTags.join(', ') : '') : 'Nog geen stem gekozen.'}
-          </div>
+          {voiceLabel ? (
+            <>
+              <div style={{ fontSize: 20, fontWeight: 700, marginTop: 10, color: '#1D1D1D' }}>{voiceLabel}</div>
+              {voiceTags.length > 0 && <div style={{ fontSize: 12.5, color: '#5C5850', marginTop: 3 }}>{voiceTags.join(', ')}</div>}
+            </>
+          ) : (
+            <div style={{ fontSize: 13, marginTop: 9, color: '#9C9890' }}>Nog geen stem gekozen.</div>
+          )}
           {voiceLabel && (
             matchedVoice && matchedVoice.audioUrl ? (
               <audio controls src={matchedVoice.audioUrl} style={{ width: '100%', height: 34, marginTop: 10 }} />
@@ -301,8 +321,8 @@ export default function OverviewPage({ params }) {
                   <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 10, padding: '8px 10px', background: '#FBF0C8', borderRadius: 8 }}>
                     <div style={{ width: 20, height: 20, borderRadius: '50%', background: '#E6C858', fontSize: 11, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none' }}>{i + 1}</div>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 13.5, fontWeight: 700 }}>{t.title}</div>
-                      <div style={{ fontSize: 11.5, color: '#5C5850' }}>{t.artist}{t.artist && t.playlistName ? ' · ' : ''}{t.playlistName}</div>
+                      <div style={{ fontSize: 17, fontWeight: 700, color: '#1D1D1D' }}>{t.title}</div>
+                      <div style={{ fontSize: 12.5, color: '#5C5850', marginTop: 2 }}>{t.artist}{t.artist && t.playlistName ? ' · ' : ''}{t.playlistName}</div>
                       {matchedTrack && matchedTrack.audioUrl ? (
                         <audio controls src={matchedTrack.audioUrl} style={{ width: '100%', height: 32, marginTop: 6 }} />
                       ) : (

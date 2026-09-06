@@ -8,6 +8,8 @@ import useMinDelay from '../../../../components/useMinDelay';
 import { useBrief } from '../../../../components/useBrief';
 import { MONTH_NAMES } from '../../../../components/flowData';
 
+const VARIATION_COUNT_OPTIONS = ['1', '2', '3'];
+
 // Step 2 — mirrors public/delivery.html.
 export default function DeliveryPage({ params }) {
   const { id } = params;
@@ -21,6 +23,7 @@ export default function DeliveryPage({ params }) {
   const [form, setForm] = useState({
     hoofdspotLength: '20',
     needsVariations: null,
+    variationsCount: '1',
     impressions: '',
     impressionsCustom: '',
     airDate: '',
@@ -35,6 +38,7 @@ export default function DeliveryPage({ params }) {
       setForm({
         hoofdspotLength: brief.hoofdspotLength || '20',
         needsVariations: brief.needsVariations,
+        variationsCount: brief.variationsCount && brief.variationsCount !== '0' ? brief.variationsCount : '1',
         impressions: brief.impressions || '',
         impressionsCustom: brief.impressionsCustom || '',
         airDate: brief.airDate || '',
@@ -66,7 +70,10 @@ export default function DeliveryPage({ params }) {
   for (let m = currentMonth; m <= 12; m++) monthOptions.push({ value: String(m), label: MONTH_NAMES[m - 1] });
 
   const summaryParts = ['1x hoofdspot (' + form.hoofdspotLength + '″)'];
-  if (form.needsVariations) summaryParts.push('variatie(s) (' + form.hoofdspotLength + '″)');
+  if (form.needsVariations) {
+    const n = parseInt(form.variationsCount, 10) || 1;
+    summaryParts.push((n === 1 ? '1x variatie' : n + 'x variaties') + ' (' + form.hoofdspotLength + '″)');
+  }
 
   return (
     <StepShell briefId={id} current={2} brief={brief} bigNum="02" kicker="Wat we gaan opleveren" title="Jouw commercial" hint="Dit bepaalt hoeveel bestanden TFA straks aanlevert." backHref={`/brief/${id}/contact`} backLabel="Terug naar je gegevens">
@@ -106,9 +113,38 @@ export default function DeliveryPage({ params }) {
           precies moet verschillen vragen we je pas zodra je het script hebt goedgekeurd.
         </div>
         <div style={{ display: 'flex', gap: 6 }}>
-          <button type="button" className={'seg-btn' + (form.needsVariations === true ? ' selected' : '')} onClick={() => update({ needsVariations: true })}>Ja</button>
-          <button type="button" className={'seg-btn' + (form.needsVariations === false ? ' selected' : '')} onClick={() => update({ needsVariations: false })}>Nee</button>
+          <button
+            type="button"
+            className={'seg-btn' + (form.needsVariations === true ? ' selected' : '')}
+            onClick={() => update({ needsVariations: true, variationsCount: form.variationsCount !== '0' ? form.variationsCount : '1' })}
+          >
+            Ja
+          </button>
+          <button
+            type="button"
+            className={'seg-btn' + (form.needsVariations === false ? ' selected' : '')}
+            onClick={() => update({ needsVariations: false })}
+          >
+            Nee
+          </button>
         </div>
+        {form.needsVariations && (
+          <div style={{ marginTop: 12 }}>
+            <label className="field-label" style={{ marginBottom: 6 }}>Hoeveel variaties heb je nodig?</label>
+            <div style={{ display: 'flex', gap: 6 }}>
+              {VARIATION_COUNT_OPTIONS.map((n) => (
+                <button
+                  key={n}
+                  type="button"
+                  className={'seg-btn' + (form.variationsCount === n ? ' selected' : '')}
+                  onClick={() => update({ variationsCount: n })}
+                >
+                  {n}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="box" style={{ marginTop: 16, background: '#E6C858', border: '2px solid #000', color: '#383209', fontSize: 12.5, lineHeight: 1.5 }}>

@@ -5,8 +5,8 @@ import { useRouter } from 'next/navigation';
 import StepShell from '../../../../components/StepShell';
 import Preloader from '../../../../components/Preloader';
 import useMinDelay from '../../../../components/useMinDelay';
-import { TONE_LABELS, estimateSeconds, wordCountOf } from '../../../../components/flowData';
-import { diffWords, DiffText } from '../../../../components/textDiff';
+import { TONE_LABELS, estimateSeconds, wordCountOf, variationsCountOf } from '../../../../components/flowData';
+import { diffWords, DiffPreview } from '../../../../components/textDiff';
 
 const DEFAULT_DISCLAIMER = 'Nog geen verplichte tekst ontvangen — deze verschijnt hier zodra ingevuld in de brief.';
 // Mirrors lib/db.js's MAX_SCRIPT_HISTORY — how many script generations a
@@ -26,9 +26,18 @@ function parseHistory(brief) {
   }
 }
 
+function parseVariationScripts(brief) {
+  try {
+    const parsed = brief && brief.variationScripts ? JSON.parse(brief.variationScripts) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (e) {
+    return [];
+  }
+}
+
 // Step 4 — mirrors public/script.html: generation, live "estimated
-// seconds" bar, hand-edit, approve, and (once approved + variation wanted)
-// the "what's different" variation panel.
+// seconds" bar, hand-edit, approve, and (once approved + variation(s)
+// wanted) one variation panel per requested variation.
 export default function ScriptPage({ params }) {
   const { id } = params;
   const router = useRouter();
@@ -42,11 +51,10 @@ export default function ScriptPage({ params }) {
   // resolves — see the identical comment in contact/page.js.
   const [navigating, setNavigating] = useState(false);
   const [scriptText, setScriptText] = useState('');
-  const [varText, setVarText] = useState('');
+  // One entry per requested variation (length driven by variationsCount).
+  const [variations, setVariations] = useState([]);
   const scriptFocused = useRef(false);
-  const varFocused = useRef(false);
   const saveTimer = useRef(null);
-  const varSaveTimer = useRef(null);
   // Set the instant an edit is made, cleared only once the debounced PATCH
   // for it actually resolves. Blur clears *Focused immediately, but the
   // save itself is still debounced 350ms behind it — without this, a poll
@@ -54,7 +62,19 @@ export default function ScriptPage({ params }) {
   // not-yet-saved server value, which looks exactly like the client's edit
   // was silently discarded.
   const scriptSavePending = useRef(false);
-  const varSavePending = useRef(false);
+  // Per-variation focus (keyed by index) — which variation textarea(s) are
+  // currently being typed in, so the sync effect below never clobbers one
+  // mid-edit.
+  const varFocusedMap = useRef({});
+  const variationsSaveTimer = useRef(null);
+  const variationsSavePending = useRef(false);
+  // The main script text the variations were last synced against — lets the
+  // sync effect tell "this variation was never customized, so it should
+  // keep mirroring the main script" apart from "this variation was
+  // hand-edited, leave it alone". Without this, fixing a typo in the main
+  // script after approval silently stopped applying to any variation that
+  // was still an untouched copy of it.
+  const prevMainRef = useRef('');
 
   const fetchBrief = useCallback(async () => {
     try {
@@ -116,7 +136,8 @@ export default function ScriptPage({ params }) {
       setFirstLoadDone(true);
     })();
     const interval = setInterval(async () => {
-      if (scriptFocused.current || varFocused.current) return;
+      const anyVarFocused = Object.values(varFocusedMap.current).some(Boolean);
+      if (scriptFocused.current || anyVarFocused) return;
       await fetchBrief();
     }, 2000);
     return () => {
@@ -126,38 +147,80 @@ export default function ScriptPage({ params }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
-  // Sync local text fields from brief, but never clobber what's focused.
+  // Sync local text fields from brief, but never clobber what's focused or
+  // has an unsaved edit in flight.
   useEffect(() => {
     if (!brief) return;
     const generatedText = brief.generatedScript || '';
     const text = brief.editedScript !== null && brief.editedScript !== undefined ? brief.editedScript : generatedText;
     if (!scriptFocused.current && !scriptSavePending.current) setScriptText(text);
-    const defaultVarText = text || '';
-    const vText = brief.editedVarScript !== null && brief.editedVarScript !== undefined ? brief.editedVarScript : defaultVarText;
-    if (!varFocused.current && !varSavePending.current) setVarText(vText);
+
+    const count = variationsCountOf(brief);
+    const stored = parseVariationScripts(brief);
+    const prevMain = prevMainRef.current;
+    if (!variationsSavePending.current) {
+      setVariations((current) => {
+        const next = [];
+        for (let idx = 0; idx < count; idx++) {
+          if (varFocusedMap.current[idx]) {
+            next.push(current[idx] !== undefined ? current[idx] : (stored[idx] !== undefined ? stored[idx] : text));
+            continue;
+          }
+          const storedVal = stored[idx];
+          if (storedVal === undefined) {
+            // Brand-new variation slot (count just went up, or nothing saved
+            // yet) — start it as a copy of the main script.
+            next.push(text);
+          } else if (storedVal === prevMain) {
+            // Never hand-edited relative to the main script — keep it
+            // mirroring the main script's own edits.
+            next.push(text);
+          } else {
+            // Customized by the client — leave it alone.
+            next.push(storedVal);
+          }
+        }
+        return next;
+      });
+    }
+    prevMainRef.current = text;
   }, [brief]);
 
-  function scheduleEditSave(field, value) {
-    const ref = field === 'editedScript' ? saveTimer : varSaveTimer;
-    const pending = field === 'editedScript' ? scriptSavePending : varSavePending;
-    pending.current = true;
-    clearTimeout(ref.current);
-    ref.current = setTimeout(() => {
+  function scheduleScriptSave(value) {
+    scriptSavePending.current = true;
+    clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(() => {
       fetch(`/api/briefs/${id}/edit`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ [field]: value }),
+        body: JSON.stringify({ editedScript: value }),
       })
         .catch(() => {})
         .finally(() => {
-          pending.current = false;
+          scriptSavePending.current = false;
+        });
+    }, 350);
+  }
+
+  function scheduleVariationsSave(arr) {
+    variationsSavePending.current = true;
+    clearTimeout(variationsSaveTimer.current);
+    variationsSaveTimer.current = setTimeout(() => {
+      fetch(`/api/briefs/${id}/edit`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ variationScripts: JSON.stringify(arr) }),
+      })
+        .catch(() => {})
+        .finally(() => {
+          variationsSavePending.current = false;
         });
     }, 350);
   }
 
   function onScriptChange(e) {
     setScriptText(e.target.value);
-    scheduleEditSave('editedScript', e.target.value);
+    scheduleScriptSave(e.target.value);
   }
   function resetScript() {
     setScriptText(brief ? brief.generatedScript || '' : '');
@@ -169,24 +232,39 @@ export default function ScriptPage({ params }) {
     setBrief((b) => (b ? { ...b, editedScript: null } : b));
   }
 
-  function onVarChange(e) {
-    setVarText(e.target.value);
-    scheduleEditSave('editedVarScript', e.target.value);
+  function onVarChange(idx, value) {
+    setVariations((current) => {
+      const next = current.slice();
+      next[idx] = value;
+      scheduleVariationsSave(next);
+      return next;
+    });
   }
-  function resetVar() {
-    setVarText(scriptText);
+  function resetVar(idx) {
+    setVariations((current) => {
+      const next = current.slice();
+      next[idx] = scriptText;
+      fetch(`/api/briefs/${id}/edit`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ variationScripts: JSON.stringify(next) }),
+      }).catch(() => {});
+      return next;
+    });
+  }
+  function varApprove(idx) {
+    clearTimeout(variationsSaveTimer.current);
     fetch(`/api/briefs/${id}/edit`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ editedVarScript: null }),
+      body: JSON.stringify({ variationScripts: JSON.stringify(variations) }),
     }).catch(() => {});
-    setBrief((b) => (b ? { ...b, editedVarScript: null } : b));
   }
 
   async function approveAndContinue() {
     if (!brief || !brief.generatedScript) return;
     // Only the "no variation needed" path actually navigates away (the
-    // variation path just reveals the variation panel further down this
+    // variation path just reveals the variation panel(s) further down this
     // same page) — so only that path shows the preloader.
     if (!brief.needsVariations) setNavigating(true);
     clearTimeout(saveTimer.current);
@@ -213,23 +291,14 @@ export default function ScriptPage({ params }) {
     router.push(`/brief/${id}/voice`);
   }
 
-  function varApprove() {
-    clearTimeout(varSaveTimer.current);
-    fetch(`/api/briefs/${id}/edit`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ editedVarScript: varText }),
-    }).catch(() => {});
-  }
-
   async function continueToVoice() {
     setNavigating(true);
-    clearTimeout(varSaveTimer.current);
+    clearTimeout(variationsSaveTimer.current);
     try {
       await fetch(`/api/briefs/${id}/edit`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ editedVarScript: varText }),
+        body: JSON.stringify({ variationScripts: JSON.stringify(variations) }),
       });
     } catch (e) {}
     router.push(`/brief/${id}/voice`);
@@ -250,6 +319,7 @@ export default function ScriptPage({ params }) {
   const spotLength = brief.hoofdspotLength || '20';
   const target = parseInt(spotLength, 10) || 20;
   const hasVariation = !!brief.needsVariations;
+  const variationCount = variationsCountOf(brief);
   const scriptApproved = !!brief.scriptApproved;
   const disclaimerText = brief.disclaimerText && brief.disclaimerText.trim() ? brief.disclaimerText : DEFAULT_DISCLAIMER;
   const hasRealDisclaimer = !!(brief.disclaimerText && brief.disclaimerText.trim());
@@ -283,19 +353,8 @@ export default function ScriptPage({ params }) {
 
   let approveLabel;
   if (!hasVariation) approveLabel = unchanged ? 'Goedkeuren, dit is prima zo' : 'Wijzigingen opslaan en goedkeuren';
-  else if (!scriptApproved) approveLabel = unchanged ? 'Goedkeuren en verder naar de variatie' : 'Wijzigingen opslaan en verder naar de variatie';
+  else if (!scriptApproved) approveLabel = unchanged ? 'Goedkeuren en verder naar de variatie' + (variationCount > 1 ? 's' : '') : 'Wijzigingen opslaan en verder naar de variatie' + (variationCount > 1 ? 's' : '');
   else approveLabel = unchanged ? 'Goedgekeurd ✓ — wijzigingen opslaan' : 'Wijzigingen opslaan';
-
-  const defaultVarText = scriptText || '';
-  const varTrimmed = (varText || '').trim();
-  const varWords = wordCountOf(varTrimmed);
-  const varSeconds = estimateSeconds(varWords);
-  let varStatusLabel = 'Past goed binnen ' + target + ' seconden.';
-  let varBarColor = '#1D1D1D';
-  if (varSeconds > target * 1.2) { varStatusLabel = 'Te lang — graag inkorten.'; varBarColor = '#C2513F'; }
-  else if (varSeconds > target * 1.05) { varStatusLabel = 'Net iets te lang — bekort het wat.'; varBarColor = '#383209'; }
-  const varBarPct = Math.min((varSeconds / target) * 100, 140) + '%';
-  const varUnchanged = varTrimmed === defaultVarText.trim();
 
   return (
     <StepShell
@@ -447,52 +506,76 @@ export default function ScriptPage({ params }) {
         </div>
       )}
 
-      <div style={{ marginTop: 24, display: 'flex', flexDirection: 'column', gap: 10, maxWidth: 420 }}>
-        <button type="button" className="btn-primary" disabled={!hasGenerated} onClick={approveAndContinue}>{approveLabel}</button>
+      <div style={{ marginTop: 24, paddingTop: 20, borderTop: '1px solid #EAE7DE', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
         {!unchanged && <button type="button" className="ghost-btn" onClick={resetScript}>Terugzetten naar scriptvoorstel</button>}
+        <button type="button" className="btn-primary" disabled={!hasGenerated} onClick={approveAndContinue}>{approveLabel}</button>
       </div>
 
       {hasVariation && scriptApproved && (
         <div style={{ marginTop: 34, paddingTop: 26, borderTop: '1px solid #EAE3C4' }}>
           <div style={{ fontSize: 13, letterSpacing: '.09em', textTransform: 'uppercase', color: '#383209', fontWeight: 500 }}>Script goedgekeurd</div>
-          <h3 style={{ fontWeight: 600, fontSize: 18, margin: '8px 0 4px' }}>Jouw variatie</h3>
+          <h3 style={{ fontWeight: 600, fontSize: 18, margin: '8px 0 4px' }}>{variationCount > 1 ? 'Jouw variaties' : 'Jouw variatie'}</h3>
           <p style={{ fontSize: 12.5, color: '#5C5850', margin: '0 0 14px', lineHeight: 1.5 }}>
-            Je gaf bij levering aan ook een variatie te willen. Hieronder staat je zojuist goedgekeurde script nogmaals — pas het
-            handmatig aan op de punten waar deze variatie moet verschillen.
+            Je gaf bij levering aan {variationCount > 1 ? `${variationCount} variaties` : 'ook een variatie'} nodig te hebben. Hieronder staat je zojuist
+            goedgekeurde script {variationCount > 1 ? `${variationCount}x` : 'nogmaals'} — pas {variationCount > 1 ? 'ze' : 'm'} handmatig aan op de punten
+            waar {variationCount > 1 ? 'elke variatie' : 'deze variatie'} moet verschillen.
           </p>
-          <textarea
-            style={{ minHeight: 90 }}
-            value={varText}
-            onFocus={() => { varFocused.current = true; }}
-            onBlur={() => { varFocused.current = false; }}
-            onChange={onVarChange}
-          />
-          <div style={{ marginTop: 14 }}>
-            <label className="field-label">Wat is er veranderd?</label>
-            {varUnchanged ? (
-              <div className="hint">
-                Nog geen wijzigingen — pas de tekst hierboven aan op het punt waar deze variatie moet verschillen van je hoofdscript.
+
+          {Array.from({ length: variationCount }).map((_, idx) => {
+            const varText = variations[idx] !== undefined ? variations[idx] : scriptText;
+            const varTrimmed = (varText || '').trim();
+            const varWords = wordCountOf(varTrimmed);
+            const varSeconds = estimateSeconds(varWords);
+            let varStatusLabel = 'Past goed binnen ' + target + ' seconden.';
+            let varBarColor = '#1D1D1D';
+            if (varSeconds > target * 1.2) { varStatusLabel = 'Te lang — graag inkorten.'; varBarColor = '#C2513F'; }
+            else if (varSeconds > target * 1.05) { varStatusLabel = 'Net iets te lang — bekort het wat.'; varBarColor = '#383209'; }
+            const varBarPct = Math.min((varSeconds / target) * 100, 140) + '%';
+            const varUnchanged = varTrimmed === scriptText.trim();
+            const tokens = diffWords(scriptText, varText);
+
+            return (
+              <div key={idx} style={{ marginTop: idx === 0 ? 0 : 28, paddingTop: idx === 0 ? 0 : 22, borderTop: idx === 0 ? 'none' : '1px dashed #EAE3C4' }}>
+                {variationCount > 1 && (
+                  <div style={{ fontSize: 12, fontWeight: 700, color: '#8C6D1F', marginBottom: 8 }}>Variatie {idx + 1} van {variationCount}</div>
+                )}
+                <textarea
+                  style={{ minHeight: 90 }}
+                  value={varText}
+                  onFocus={() => { varFocusedMap.current[idx] = true; }}
+                  onBlur={() => { varFocusedMap.current[idx] = false; }}
+                  onChange={(e) => onVarChange(idx, e.target.value)}
+                />
+                <div style={{ marginTop: 14 }}>
+                  <label className="field-label">Wat is er veranderd?</label>
+                  {varUnchanged ? (
+                    <div className="hint">
+                      Nog geen wijzigingen — pas de tekst hierboven aan op het punt waar deze variatie moet verschillen van je hoofdscript.
+                    </div>
+                  ) : (
+                    <div style={{ background: '#FBF9EC', border: '1px solid #EAE3C4', borderRadius: 10, padding: '12px 14px', fontSize: 13.5, lineHeight: 1.65, color: '#1D1D1D' }}>
+                      <DiffPreview tokens={tokens} />
+                    </div>
+                  )}
+                </div>
+                <div style={{ marginTop: 10 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11.5, color: '#5C5850' }}>
+                    <span>Geschatte lengte</span>
+                    <span style={{ fontWeight: 500, color: varBarColor }}>{varSeconds.toFixed(1)}s van {target}″</span>
+                  </div>
+                  <div style={{ marginTop: 6, height: 8, borderRadius: 4, background: '#EAE7DE', overflow: 'hidden' }}>
+                    <div style={{ height: '100%', borderRadius: 4, width: varBarPct, background: varBarColor }} />
+                  </div>
+                  <div style={{ marginTop: 6, fontSize: 12.5, fontWeight: 500, color: varBarColor }}>{varStatusLabel}</div>
+                </div>
+                <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid #EAE7DE', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                  {!varUnchanged && <button type="button" className="ghost-btn" onClick={() => resetVar(idx)}>Terugzetten naar origineel</button>}
+                  <button type="button" className="btn-primary" onClick={() => varApprove(idx)}>{varUnchanged ? 'Goedkeuren, dit is prima zo' : 'Wijzigingen opslaan en goedkeuren'}</button>
+                </div>
               </div>
-            ) : (
-              <div style={{ background: '#FBF9EC', border: '1px solid #EAE3C4', borderRadius: 10, padding: '12px 14px', fontSize: 13.5, lineHeight: 1.65, color: '#1D1D1D' }}>
-                <DiffText tokens={diffWords(scriptText, varText)} />
-              </div>
-            )}
-          </div>
-          <div style={{ marginTop: 10 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11.5, color: '#5C5850' }}>
-              <span>Geschatte lengte</span>
-              <span style={{ fontWeight: 500, color: varBarColor }}>{varSeconds.toFixed(1)}s van {target}″</span>
-            </div>
-            <div style={{ marginTop: 6, height: 8, borderRadius: 4, background: '#EAE7DE', overflow: 'hidden' }}>
-              <div style={{ height: '100%', borderRadius: 4, width: varBarPct, background: varBarColor }} />
-            </div>
-            <div style={{ marginTop: 6, fontSize: 12.5, fontWeight: 500, color: varBarColor }}>{varStatusLabel}</div>
-          </div>
-          <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 10, maxWidth: 420 }}>
-            <button type="button" className="btn-primary" onClick={varApprove}>{varUnchanged ? 'Goedkeuren, dit is prima zo' : 'Wijzigingen opslaan en goedkeuren'}</button>
-            {!varUnchanged && <button type="button" className="ghost-btn" onClick={resetVar}>Terugzetten naar origineel</button>}
-          </div>
+            );
+          })}
+
           <div style={{ marginTop: 20, paddingTop: 22, borderTop: '1px solid #EAE7DE', display: 'flex', justifyContent: 'flex-end' }}>
             <button type="button" className="btn-primary" style={{ minWidth: 320, flex: 'none', whiteSpace: 'nowrap', padding: '14px 26px' }} onClick={continueToVoice}>Doorgaan naar de stem</button>
           </div>

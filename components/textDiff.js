@@ -53,7 +53,10 @@ export function hasDiff(tokens) {
 }
 
 // Renders diffWords() output — removed words struck through, added words
-// highlighted in the brand gold, everything else plain.
+// highlighted in the brand gold, everything else plain. Shows the FULL
+// merged text (old + new interleaved) — accurate, but doubles up on length
+// once there's more than one variation on a page (see DiffPreview below for
+// the more compact alternative used there).
 export function DiffText({ tokens }) {
   return tokens.map((t, i) => {
     if (t.type === 'removed') {
@@ -72,4 +75,36 @@ export function DiffText({ tokens }) {
     }
     return <span key={i}>{t.text}</span>;
   });
+}
+
+// Lighter alternative to DiffText — shows the variation's OWN text once
+// (equal + added tokens only, additions highlighted in gold) instead of
+// interleaving the removed words back in via strikethrough. What was
+// removed is folded into one small muted caption underneath instead of
+// being shown inline at full size. With several variations on one page
+// this keeps each one to roughly its own length rather than ~1.5-2x it.
+export function DiffPreview({ tokens }) {
+  const removedText = tokens.filter((t) => t.type === 'removed').map((t) => t.text).join('').trim();
+  return (
+    <>
+      <div>
+        {tokens
+          .filter((t) => t.type !== 'removed')
+          .map((t, i) =>
+            t.type === 'added' ? (
+              <span key={i} style={{ background: 'rgba(230,200,88,.4)', color: '#1D1D1D', fontWeight: 600, borderRadius: 3 }}>
+                {t.text}
+              </span>
+            ) : (
+              <span key={i}>{t.text}</span>
+            )
+          )}
+      </div>
+      {removedText && (
+        <div style={{ marginTop: 6, fontSize: 11.5, color: '#9C9890', fontStyle: 'italic' }}>
+          Verwijderd t.o.v. het hoofdscript: &ldquo;{removedText}&rdquo;
+        </div>
+      )}
+    </>
+  );
 }
