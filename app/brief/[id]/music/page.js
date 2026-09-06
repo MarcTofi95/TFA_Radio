@@ -26,7 +26,7 @@ export default function MusicPage({ params }) {
   const { id } = params;
   const router = useRouter();
   const { brief, loading, schedulePatch, flushPending, patch } = useBrief(id);
-  const showLoader = useMinDelay(loading, 2000);
+  const showLoader = useMinDelay(loading, 700);
   // See the identical comment in contact/page.js.
   const [navigating, setNavigating] = useState(false);
   const [selectedTracks, setSelectedTracks] = useState([]);

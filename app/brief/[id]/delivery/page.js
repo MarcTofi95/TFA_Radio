@@ -13,7 +13,7 @@ export default function DeliveryPage({ params }) {
   const { id } = params;
   const router = useRouter();
   const { brief, loading, schedulePatch, flushPending, patch } = useBrief(id);
-  const showLoader = useMinDelay(loading, 2000);
+  const showLoader = useMinDelay(loading, 700);
   // See the identical comment in contact/page.js: set the instant "Volgende"
   // is clicked so the preloader takes over immediately instead of a beat of
   // stale page while the save is still in flight.

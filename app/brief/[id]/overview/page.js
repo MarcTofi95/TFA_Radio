@@ -39,7 +39,7 @@ function formatAirDate(brief) {
 export default function OverviewPage({ params }) {
   const { id } = params;
   const { brief, loading, patch } = useBrief(id);
-  const showLoader = useMinDelay(loading, 2000);
+  const showLoader = useMinDelay(loading, 700);
   const [consentChecked, setConsentChecked] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [voicesPool, setVoicesPool] = useState([]);

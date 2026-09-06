@@ -12,7 +12,7 @@ export default function ContactPage({ params }) {
   const { id } = params;
   const router = useRouter();
   const { brief, loading, schedulePatch, flushPending, patch } = useBrief(id);
-  const showLoader = useMinDelay(loading, 2000);
+  const showLoader = useMinDelay(loading, 700);
   const [form, setForm] = useState({ companyName: '', contactPerson: '', contactEmail: '' });
   // Set the instant the client clicks "Volgende" — before the save even
   // starts — so the preloader takes over immediately instead of the client

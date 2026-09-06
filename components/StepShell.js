@@ -59,7 +59,7 @@ function ResumeCard({ briefId, defaultEmail }) {
   }
 
   return (
-    <div style={{ marginTop: 22, padding: '12px 14px', borderRadius: 10, background: 'rgba(255,255,255,.04)', border: '1px solid #33301F' }}>
+    <div style={{ padding: '12px 14px', borderRadius: 10, background: 'rgba(255,255,255,.04)', border: '1px solid #33301F' }}>
       <div style={{ fontSize: 12, color: '#D8D5CB', lineHeight: 1.5 }}>
         Je voortgang wordt automatisch opgeslagen — je kunt altijd later verdergaan via deze link.
       </div>
@@ -122,6 +122,15 @@ export default function StepShell({ briefId, current, brief, subtitle, bigNum, k
 
   return (
     <div style={{ height: '100vh', background: '#DEDCD7', display: 'flex', overflow: 'hidden' }} className="tfa-shell">
+      {/* The one gold swipe transition in the whole flow: StepShell mounts
+          exactly once per step (unlike Preloader, which mounts twice per
+          transition — see the comment in Preloader.js), so this is the
+          right place for it. The page underneath is already fully rendered
+          the instant this mounts; the panel just covers it for a beat and
+          then slides off, so the swipe reads as "the preloader hands off
+          into this page" rather than a flash tacked onto the preloader
+          itself. */}
+      <span className="tfa-shell-wipe" aria-hidden="true" />
       <div
         style={{
           flex: '0 0 300px', height: '100%', background: '#1D1D1D', color: '#FFFFFF', padding: '36px 26px',
@@ -193,30 +202,20 @@ export default function StepShell({ briefId, current, brief, subtitle, bigNum, k
           })}
         </div>
 
-        {brief && briefId && <ResumeCard briefId={briefId} defaultEmail={brief.contactEmail} />}
-
         <div style={{ display: 'flex', gap: 6, alignItems: 'flex-end', margin: '24px 0' }}>
           {[6, 10, 14, 10, 6].map((h, i) => (
             <span key={i} style={{ display: 'block', width: 3, height: h, borderRadius: 2, background: '#E6C858', opacity: 0.55 }} />
           ))}
         </div>
 
-        <div style={{ marginTop: 'auto', display: 'flex', gap: 10, alignItems: 'flex-start', paddingTop: 20, borderTop: '1px solid #33301F' }}>
-          <div
-            style={{
-              width: 34, height: 34, borderRadius: '50%', background: '#E6C858', color: '#1D1D1D', fontWeight: 700,
-              fontSize: 11.5, display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none',
-            }}
-          >
-            TFA
+        {/* Replaces the old "Team TFA" contact card that used to sit here —
+            a static blurb with nothing actionable in it. The autosave/resume
+            card is more useful in this bottom-of-sidebar spot. */}
+        {brief && briefId && (
+          <div style={{ marginTop: 'auto', paddingTop: 20, borderTop: '1px solid #33301F' }}>
+            <ResumeCard briefId={briefId} defaultEmail={brief.contactEmail} />
           </div>
-          <div>
-            <div style={{ fontSize: 14.5, fontWeight: 600, color: '#FFFFFF' }}>Team TFA</div>
-            <div style={{ fontSize: 13.5, color: '#B9B6AC', marginTop: 2, lineHeight: 1.4 }}>
-              Jouw team bij TFA — we houden dit traject in de gaten van brief tot uitzending.
-            </div>
-          </div>
-        </div>
+        )}
       </div>
 
       <div
@@ -253,12 +252,17 @@ export default function StepShell({ briefId, current, brief, subtitle, bigNum, k
       </div>
 
       <style jsx>{`
-        .tfa-shell {
-          animation: tfa-shell-in .5s cubic-bezier(.19, 1, .22, 1) both;
+        .tfa-shell-wipe {
+          position: fixed;
+          inset: 0;
+          background: #E6C858;
+          z-index: 9999;
+          pointer-events: none;
+          animation: tfa-shell-wipe-out .5s cubic-bezier(.76, 0, .24, 1) both;
         }
-        @keyframes tfa-shell-in {
-          from { opacity: 0; transform: translateY(14px); }
-          to { opacity: 1; transform: translateY(0); }
+        @keyframes tfa-shell-wipe-out {
+          0% { transform: translateX(0%); }
+          100% { transform: translateX(100%); }
         }
         @media (max-width: 900px) {
           .tfa-shell {

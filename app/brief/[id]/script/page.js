@@ -37,7 +37,7 @@ export default function ScriptPage({ params }) {
   const [genError, setGenError] = useState(null); // { message, debugId } | null
   const [selectingVersionId, setSelectingVersionId] = useState(null);
   const [firstLoadDone, setFirstLoadDone] = useState(false);
-  const showLoader = useMinDelay(!firstLoadDone, 2000);
+  const showLoader = useMinDelay(!firstLoadDone, 700);
   // Set the instant a "continue" action is clicked, before its save call
   // resolves — see the identical comment in contact/page.js.
   const [navigating, setNavigating] = useState(false);

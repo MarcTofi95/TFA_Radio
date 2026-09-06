@@ -16,7 +16,7 @@ export default function DetailsPage({ params }) {
   const { id } = params;
   const router = useRouter();
   const { brief, loading, schedulePatch, flushPending, patch } = useBrief(id);
-  const showLoader = useMinDelay(loading, 2000);
+  const showLoader = useMinDelay(loading, 700);
   // Set the instant "Akkoord" is clicked, not after the save (and, on this
   // step, the AI script generation call too) resolves — this used to show
   // the button's disabled "Script wordt gegenereerd…" state on the current
