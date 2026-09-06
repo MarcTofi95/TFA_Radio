@@ -234,7 +234,21 @@ function AddZone({ kind, categories, defaultGender, defaultAgeRange, onConfirm, 
             {staged.length} bestand{staged.length === 1 ? '' : 'en'} klaar om toe te voegen — controleer de velden hieronder:
           </div>
           {staged.map((it) => (
-            <div key={it.localId} style={{ background: '#FFFFFF', border: '1px solid #EEECE3', borderRadius: 10, padding: '12px 14px' }}>
+            <div key={it.localId} style={{ position: 'relative', background: '#FFFFFF', border: '1px solid #EEECE3', borderRadius: 10, padding: '12px 40px 12px 14px' }}>
+              <button
+                type="button"
+                onClick={() => removeStaged(it.localId)}
+                title="Verwijderen uit import"
+                aria-label="Verwijderen uit import"
+                className="tfa-staged-remove"
+                style={{
+                  position: 'absolute', top: 8, right: 8, width: 24, height: 24, borderRadius: '50%', border: 'none',
+                  background: 'transparent', color: '#8C8880', cursor: 'pointer', fontSize: 15, lineHeight: 1,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}
+              >
+                ×
+              </button>
               <div style={{ fontSize: 11.5, color: '#8C8880', marginBottom: 8 }}>{it.file.name}</div>
               {kind === 'music' ? (
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 8 }} className="tfa-lib-grid">
@@ -261,9 +275,6 @@ function AddZone({ kind, categories, defaultGender, defaultAgeRange, onConfirm, 
                   <input type="text" value={it.fileId} onChange={(e) => updateStaged(it.localId, { fileId: e.target.value })} placeholder="File ID (optioneel)" />
                 </div>
               )}
-              <button type="button" onClick={() => removeStaged(it.localId)} style={{ marginTop: 8, border: 'none', background: 'transparent', color: '#C2513F', cursor: 'pointer', fontSize: 11.5 }}>
-                Verwijderen uit import
-              </button>
             </div>
           ))}
           <button
@@ -792,6 +803,8 @@ export default function LibraryClient({ tracks, voices, categories, defaultTags 
         }
         .tfa-btn-glow { transition: filter .12s ease; }
         .tfa-btn-glow:hover { filter: brightness(1.08); }
+        .tfa-staged-remove { transition: background .12s ease, color .12s ease; }
+        .tfa-staged-remove:hover { background: rgba(194,81,63,.12); color: #C2513F; }
       `}</style>
     </div>
   );

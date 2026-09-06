@@ -36,6 +36,15 @@ function parseSelectedTracks(brief) {
   }
 }
 
+function parseInternalNotes(brief) {
+  try {
+    const parsed = brief.internalNotes ? JSON.parse(brief.internalNotes) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (e) {
+    return [];
+  }
+}
+
 function statusMetaOf(brief) {
   return STATUS_META[brief.status] || STATUS_META.todo;
 }
@@ -82,6 +91,17 @@ function ModalSectionTitle({ children }) {
   return <div style={{ fontSize: 13, fontWeight: 700, color: '#1D1D1D', marginBottom: 10 }}>{children}</div>;
 }
 
+// Deadline coloring — overdue is only meaningful for a brief that isn't done
+// yet; a finished brief with a past due date isn't a problem.
+function dueDateMeta(dueDate, status) {
+  if (!dueDate) return { label: 'Geen deadline', color: '#9C9890', overdue: false };
+  const d = new Date(dueDate + 'T00:00:00');
+  if (isNaN(d.getTime())) return { label: dueDate, color: '#9C9890', overdue: false };
+  const label = d.toLocaleDateString('nl-NL', { day: 'numeric', month: 'short', year: 'numeric' });
+  const overdue = status !== 'done' && d.getTime() < new Date().setHours(0, 0, 0, 0);
+  return { label, color: overdue ? '#C2513F' : '#1D1D1D', overdue };
+}
+
 export default function DashboardClient({ briefs }) {
   const [rows, setRows] = useState(briefs);
   const [range, setRange] = useState('30d');
@@ -104,6 +124,60 @@ export default function DashboardClient({ briefs }) {
   useEffect(() => {
     setRows(briefs);
   }, [briefs]);
+
+  const [noteDraft, setNoteDraft] = useState('');
+  const [noteBusy, setNoteBusy] = useState(false);
+  const [metaBusy, setMetaBusy] = useState(false);
+
+  // Clear any unsent note draft whenever a different brief's modal opens
+  // (or the modal closes) — otherwise a half-typed note for one brief could
+  // get silently posted to the next one the producer opens.
+  useEffect(() => {
+    setNoteDraft('');
+  }, [selected && selected.id]);
+
+  async function handleMetaChange(id, patch) {
+    const prev = rows;
+    setRows((cur) => cur.map((b) => (b.id === id ? { ...b, ...patch } : b)));
+    setSelected((cur) => (cur && cur.id === id ? { ...cur, ...patch } : cur));
+    setMetaBusy(true);
+    try {
+      const res = await fetch(`/api/dashboard/briefs/${id}/meta`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(patch),
+      });
+      if (!res.ok) throw new Error('meta update failed');
+    } catch (err) {
+      console.error(err);
+      setRows(prev);
+      setSelected((cur) => (cur && cur.id === id ? prev.find((b) => b.id === id) || cur : cur));
+    } finally {
+      setMetaBusy(false);
+    }
+  }
+
+  async function handleAddNote(id) {
+    const text = noteDraft.trim();
+    if (!text) return;
+    setNoteBusy(true);
+    try {
+      const res = await fetch(`/api/dashboard/briefs/${id}/notes`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text }),
+      });
+      if (!res.ok) throw new Error('add note failed');
+      const brief = await res.json();
+      setRows((cur) => cur.map((b) => (b.id === id ? brief : b)));
+      setSelected((cur) => (cur && cur.id === id ? brief : cur));
+      setNoteDraft('');
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setNoteBusy(false);
+    }
+  }
 
   async function handleStatusChange(id, status) {
     const prev = rows;
@@ -246,12 +320,14 @@ export default function DashboardClient({ briefs }) {
 
       <div style={{ background: '#FFFFFF', borderRadius: 14, boxShadow: '0 1px 10px rgba(29,29,29,.05)', overflow: 'hidden' }}>
         <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, minWidth: 640 }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, minWidth: 820 }}>
             <thead>
               <tr style={{ borderBottom: '1px solid #EEECE3', textAlign: 'left' }}>
                 {[
                   ['companyName', 'Bedrijf'],
                   ['hoofdspotLength', 'Spot'],
+                  ['assignedTo', 'Toegewezen'],
+                  ['dueDate', 'Deadline'],
                   ['updatedAt', 'Laatst gewijzigd'],
                   ['status', 'Status'],
                 ].map(([field, label]) => (
@@ -266,21 +342,28 @@ export default function DashboardClient({ briefs }) {
               </tr>
             </thead>
             <tbody>
-              {pageItems.map((b) => (
-                <tr key={b.id} onClick={() => setSelected(b)} className="tfa-dash-row" style={{ borderBottom: '1px solid #F3F1EA', cursor: 'pointer' }}>
-                  <td style={{ padding: '12px 16px', fontWeight: 600, color: b.companyName ? '#1D1D1D' : '#9C9890' }}>
-                    {b.companyName || 'Nog geen bedrijfsnaam'}
-                  </td>
-                  <td style={{ padding: '12px 16px' }}>{b.hoofdspotLength || '20'}″</td>
-                  <td style={{ padding: '12px 16px' }}>{new Date(b.updatedAt).toLocaleString('nl-NL')}</td>
-                  <td style={{ padding: '12px 16px' }}>
-                    <StatusSelect brief={b} onChange={handleStatusChange} compact />
-                  </td>
-                </tr>
-              ))}
+              {pageItems.map((b) => {
+                const due = dueDateMeta(b.dueDate, b.status);
+                return (
+                  <tr key={b.id} onClick={() => setSelected(b)} className="tfa-dash-row" style={{ borderBottom: '1px solid #F3F1EA', cursor: 'pointer' }}>
+                    <td style={{ padding: '12px 16px', fontWeight: 600, color: b.companyName ? '#1D1D1D' : '#9C9890' }}>
+                      {b.companyName || 'Nog geen bedrijfsnaam'}
+                    </td>
+                    <td style={{ padding: '12px 16px' }}>{b.hoofdspotLength || '20'}″</td>
+                    <td style={{ padding: '12px 16px', color: b.assignedTo ? '#1D1D1D' : '#9C9890' }}>{b.assignedTo || '—'}</td>
+                    <td style={{ padding: '12px 16px', color: due.color, fontWeight: due.overdue ? 700 : 400 }}>
+                      {due.overdue ? '⚠ ' : ''}{due.label}
+                    </td>
+                    <td style={{ padding: '12px 16px' }}>{new Date(b.updatedAt).toLocaleString('nl-NL')}</td>
+                    <td style={{ padding: '12px 16px' }}>
+                      <StatusSelect brief={b} onChange={handleStatusChange} compact />
+                    </td>
+                  </tr>
+                );
+              })}
               {pageItems.length === 0 && (
                 <tr>
-                  <td colSpan={4} style={{ padding: '24px 16px', textAlign: 'center', color: '#8C8880' }}>Geen briefs in deze periode.</td>
+                  <td colSpan={6} style={{ padding: '24px 16px', textAlign: 'center', color: '#8C8880' }}>Geen briefs in deze periode.</td>
                 </tr>
               )}
             </tbody>
@@ -326,6 +409,76 @@ export default function DashboardClient({ briefs }) {
                   <Field label="Hoofdspot">{selected.hoofdspotLength || '20'}″{selected.needsVariations ? ' + variatie' : ''}</Field>
                   <Field label="Aangemaakt">{new Date(selected.createdAt).toLocaleString('nl-NL')}</Field>
                   {selected.submittedAt && <Field label="Verzonden">{new Date(selected.submittedAt).toLocaleString('nl-NL')}</Field>}
+                </div>
+              </div>
+
+              <div style={{ ...modalCardStyle, gridColumn: '1 / -1' }}>
+                <ModalSectionTitle>Team</ModalSectionTitle>
+                <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                  <div style={{ flex: '1 1 200px' }}>
+                    <div style={{ fontSize: 10.5, fontWeight: 600, color: '#8C8880', textTransform: 'uppercase', letterSpacing: '.04em', marginBottom: 4 }}>Toegewezen aan</div>
+                    <input
+                      type="text"
+                      defaultValue={selected.assignedTo || ''}
+                      placeholder="Naam van teamlid"
+                      onBlur={(e) => {
+                        const value = e.target.value.trim();
+                        if (value !== (selected.assignedTo || '')) handleMetaChange(selected.id, { assignedTo: value });
+                      }}
+                      disabled={metaBusy}
+                      style={{ width: '100%', border: '1px solid #C9C5B9', borderRadius: 8, padding: '8px 10px', fontSize: 13, background: '#FFFFFF' }}
+                    />
+                  </div>
+                  <div style={{ flex: '1 1 160px' }}>
+                    <div style={{ fontSize: 10.5, fontWeight: 600, color: '#8C8880', textTransform: 'uppercase', letterSpacing: '.04em', marginBottom: 4 }}>Deadline</div>
+                    <input
+                      type="date"
+                      defaultValue={selected.dueDate || ''}
+                      onChange={(e) => handleMetaChange(selected.id, { dueDate: e.target.value })}
+                      disabled={metaBusy}
+                      style={{ width: '100%', border: '1px solid #C9C5B9', borderRadius: 8, padding: '8px 10px', fontSize: 13, background: '#FFFFFF' }}
+                    />
+                  </div>
+                </div>
+
+                <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid #EAE3C4' }}>
+                  <div style={{ fontSize: 10.5, fontWeight: 600, color: '#8C8880', textTransform: 'uppercase', letterSpacing: '.04em', marginBottom: 8 }}>
+                    Interne notities <span style={{ opacity: 0.7 }}>(niet zichtbaar voor de klant)</span>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 180, overflowY: 'auto', marginBottom: 10 }}>
+                    {parseInternalNotes(selected).slice().reverse().map((n) => (
+                      <div key={n.id} style={{ background: '#FFFFFF', border: '1px solid #EAE3C4', borderRadius: 8, padding: '8px 10px' }}>
+                        <div style={{ fontSize: 13, color: '#1D1D1D', lineHeight: 1.5 }}>{n.text}</div>
+                        <div style={{ fontSize: 11, color: '#8C8880', marginTop: 4 }}>
+                          {n.author || 'Team'} · {new Date(n.createdAt).toLocaleString('nl-NL')}
+                        </div>
+                      </div>
+                    ))}
+                    {parseInternalNotes(selected).length === 0 && (
+                      <div style={{ fontSize: 12.5, color: '#9C9890' }}>Nog geen notities.</div>
+                    )}
+                  </div>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <input
+                      type="text"
+                      value={noteDraft}
+                      onChange={(e) => setNoteDraft(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === 'Enter' && !noteBusy) handleAddNote(selected.id); }}
+                      placeholder="Voeg een interne notitie toe…"
+                      style={{ flex: 1, border: '1px solid #C9C5B9', borderRadius: 8, padding: '8px 10px', fontSize: 13, background: '#FFFFFF' }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handleAddNote(selected.id)}
+                      disabled={noteBusy || !noteDraft.trim()}
+                      style={{
+                        border: 'none', borderRadius: 8, background: '#1D1D1D', color: '#FFFFFF', fontSize: 12.5, fontWeight: 600,
+                        padding: '8px 16px', cursor: noteBusy || !noteDraft.trim() ? 'not-allowed' : 'pointer', opacity: noteBusy || !noteDraft.trim() ? 0.6 : 1,
+                      }}
+                    >
+                      Toevoegen
+                    </button>
+                  </div>
                 </div>
               </div>
 

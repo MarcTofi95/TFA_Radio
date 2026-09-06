@@ -108,7 +108,7 @@ export default async function ReportsPage() {
           wordt gebruikt. De CSV-export bevat elke brief als aparte rij, klaar om te openen in Excel of Google Sheets.
         </p>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14, marginBottom: 20 }} className="tfa-stats-grid">
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14, marginBottom: 14 }} className="tfa-stats-grid">
           <StatTile label="Totaal briefs" value={report.total} />
           <StatTile label="Nieuw deze maand" value={report.newThisMonth} color="#1F6F8C" />
           <StatTile
@@ -117,6 +117,15 @@ export default async function ReportsPage() {
             color="#1D7A46"
           />
           <StatTile label="Gem. hergeneraties per brief" value={report.avgRegenerations} color="#8C6D1F" />
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 14, marginBottom: 20 }} className="tfa-stats-grid-2">
+          <StatTile
+            label="Gem. doorlooptijd tot klaar"
+            value={report.avgTurnaroundDays === null ? '—' : `${report.avgTurnaroundDays}d`}
+            color="#1D7A46"
+          />
+          <StatTile label="Over deadline (nog niet klaar)" value={report.overdueCount} color={report.overdueCount > 0 ? '#C2513F' : '#1D1D1D'} />
         </div>
 
         <div style={{ marginBottom: 20 }}>
@@ -131,8 +140,9 @@ export default async function ReportsPage() {
           <BreakdownCard title="Scriptgeneratie — bron" rows={report.scriptSourceBreakdown} />
           <BreakdownCard title="Variaties gevraagd" rows={report.variationsBreakdown} />
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 14 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 14 }} className="tfa-reports-grid">
           <BreakdownCard title="Gekozen aantal impressies" rows={report.impressionsBreakdown} />
+          <BreakdownCard title="Verdeling per teamlid" rows={report.assignedBreakdown} emptyLabel="Nog geen briefs toegewezen." />
         </div>
       </main>
 
@@ -143,6 +153,9 @@ export default async function ReportsPage() {
         }
         @media (max-width: 1100px) {
           .tfa-stats-grid { grid-template-columns: repeat(2, 1fr) !important; }
+        }
+        @media (max-width: 560px) {
+          .tfa-stats-grid-2 { grid-template-columns: 1fr !important; }
         }
         @media (max-width: 800px) {
           .tfa-reports-grid { grid-template-columns: 1fr !important; }
