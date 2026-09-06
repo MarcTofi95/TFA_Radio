@@ -15,8 +15,14 @@ const TONE_ORDER = Object.keys(TONE_LABELS);
 export default function DetailsPage({ params }) {
   const { id } = params;
   const router = useRouter();
-  const { brief, loading, saveState, schedulePatch, flushPending, patch } = useBrief(id);
+  const { brief, loading, schedulePatch, flushPending, patch } = useBrief(id);
   const showLoader = useMinDelay(loading, 2000);
+  // Set the instant "Akkoord" is clicked, not after the save (and, on this
+  // step, the AI script generation call too) resolves — this used to show
+  // the button's disabled "Script wordt gegenereerd…" state on the current
+  // page for the whole wait, then only switch to the preloader once
+  // navigation actually happened. Now the preloader takes over immediately.
+  const [navigating, setNavigating] = useState(false);
   const [form, setForm] = useState({
     disclaimerText: '', extraNote: '', product: '', audience: 'b2b', decisionMaker: '',
     audienceAgeInterests: '', usp: '', price: null, priceDetail: '', mainMessage: '',
@@ -72,6 +78,7 @@ export default function DetailsPage({ params }) {
   }
 
   async function submit() {
+    setNavigating(true);
     flushPending();
     // NOTE: this only advances past the brief/details step — it must NOT
     // pass {submitted:true}. That flag means "the whole 7-step flow is
@@ -88,7 +95,7 @@ export default function DetailsPage({ params }) {
     router.push(`/brief/${id}/script`);
   }
 
-  if (showLoader) return <Preloader />;
+  if (showLoader || navigating) return <Preloader />;
 
   return (
     <StepShell briefId={id} current={3} brief={brief} bigNum="03" kicker="De inhoud" title="Jouw brief" hint="Nog een paar korte vragen over je commercial en je brief." backHref={`/brief/${id}/delivery`} backLabel="Terug naar levering">
@@ -191,7 +198,6 @@ export default function DetailsPage({ params }) {
           {generating ? 'Script wordt gegenereerd…' : 'Akkoord — verder naar het scriptvoorstel'}
         </button>
       </div>
-      <div style={{ fontSize: 11, color: '#8C8880', textAlign: 'right', marginTop: 10, height: 14 }}>{saveState}</div>
     </StepShell>
   );
 }

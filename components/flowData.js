@@ -17,6 +17,18 @@ export const STEPS = [
 // marks a step reachable once the brief has real data implying the client
 // got that far, even if they're currently earlier in the flow (so going
 // back never stunts forward navigation).
+//
+// Step 7 (Overzicht) used to only count as "reached" once brief.submittedAt
+// was set — i.e. only after the whole flow was already finished. That meant
+// clicking a "Wijzig" link from the overview (which jumps back to an
+// earlier step to edit something, well before submitting) made Overzicht
+// gray out in the sidebar immediately, since it hadn't been submitted yet —
+// the client then had to click all the way forward through every step
+// again just to get back to it. Overzicht doesn't collect its own data, so
+// it should be reachable as soon as there's enough approved data to show
+// there — the exact same check the overview page itself uses to enable its
+// "Bevestigen en versturen" button — not only once the whole thing has
+// already been sent.
 export function computeReached(brief) {
   if (!brief) return {};
   let tracks = [];
@@ -24,13 +36,14 @@ export function computeReached(brief) {
     const parsed = brief.selectedTracks ? JSON.parse(brief.selectedTracks) : [];
     if (Array.isArray(parsed)) tracks = parsed;
   } catch (e) {}
+  const hasScript = !!(brief.generatedScript || brief.editedScript);
   return {
     2: !!(brief.impressions || brief.airDate || brief.dateUnknown),
     3: !!(brief.product || brief.usp || brief.mainMessage),
-    4: !!(brief.generatedScript || brief.editedScript),
+    4: hasScript,
     5: !!brief.selectedVoiceId,
     6: tracks.length > 0,
-    7: !!brief.submittedAt,
+    7: !!brief.submittedAt || (hasScript && !!brief.selectedVoiceId && tracks.length > 0),
   };
 }
 

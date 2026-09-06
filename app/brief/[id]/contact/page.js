@@ -11,9 +11,16 @@ import { useBrief } from '../../../../components/useBrief';
 export default function ContactPage({ params }) {
   const { id } = params;
   const router = useRouter();
-  const { brief, loading, saveState, schedulePatch, flushPending, patch } = useBrief(id);
+  const { brief, loading, schedulePatch, flushPending, patch } = useBrief(id);
   const showLoader = useMinDelay(loading, 2000);
   const [form, setForm] = useState({ companyName: '', contactPerson: '', contactEmail: '' });
+  // Set the instant the client clicks "Volgende" — before the save even
+  // starts — so the preloader takes over immediately instead of the client
+  // sitting on the current page while the autosave/patch call is in flight.
+  // Without this there was a visible beat of "something's happening but
+  // it's not the preloader" before the real one-and-only preloader kicked
+  // in on the next page.
+  const [navigating, setNavigating] = useState(false);
 
   // Hydrate local form state from the fetched brief ONLY once, on first
   // load — not on every subsequent `brief` update. patch() also calls
@@ -41,12 +48,13 @@ export default function ContactPage({ params }) {
   }
 
   async function next() {
+    setNavigating(true);
     flushPending();
     await patch(form);
     router.push(`/brief/${id}/delivery`);
   }
 
-  if (showLoader) return <Preloader />;
+  if (showLoader || navigating) return <Preloader />;
 
   return (
     <StepShell briefId={id} current={1} brief={brief} bigNum="01" kicker="Wie ben je" title="Jouw gegevens">
@@ -69,7 +77,6 @@ export default function ContactPage({ params }) {
         <button type="button" className="btn-primary" style={{ width: 320, flex: 'none' }} onClick={next}>
           Volgende — verder naar je commercial
         </button>
-        <div style={{ fontSize: 11, color: '#8C8880', textAlign: 'center', marginTop: 10, height: 14 }}>{saveState}</div>
       </div>
     </StepShell>
   );

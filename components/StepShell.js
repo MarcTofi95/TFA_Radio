@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 import BrandMark from './BrandMark';
 import { STEPS, computeReached } from './flowData';
@@ -15,6 +16,92 @@ function WaveIcon({ dim }) {
       <rect x="8.4" y="1.5" width="1.6" height="7" rx="0.8" fill={fill} opacity={opacity} />
       <rect x="11.2" y="3" width="1.6" height="4" rx="0.8" fill={fill} opacity={opacity} />
     </svg>
+  );
+}
+
+// Reassures the client that leaving mid-form is safe (every field already
+// autosaves as they type — see useBrief's schedulePatch) and gives them two
+// ways back in: copy the current link, or have it emailed to them. Neither
+// button changes what's saved — the brief is already persisted to the same
+// row the whole time — they're purely a way to hold onto/retrieve the link.
+function ResumeCard({ briefId, defaultEmail }) {
+  const [open, setOpen] = useState(false);
+  const [copyState, setCopyState] = useState('idle');
+  const [email, setEmail] = useState(defaultEmail || '');
+  const [emailState, setEmailState] = useState('idle');
+
+  async function copyLink() {
+    const url = typeof window !== 'undefined' ? window.location.href : '';
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopyState('copied');
+    } catch (e) {
+      setCopyState('error');
+    }
+    setTimeout(() => setCopyState('idle'), 2200);
+  }
+
+  async function sendLink() {
+    const value = email.trim();
+    if (!value || !briefId) return;
+    setEmailState('sending');
+    try {
+      const res = await fetch(`/api/briefs/${briefId}/resume-link`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: value }),
+      });
+      setEmailState(res.ok ? 'sent' : 'error');
+    } catch (e) {
+      setEmailState('error');
+    }
+    setTimeout(() => setEmailState('idle'), 3000);
+  }
+
+  return (
+    <div style={{ marginTop: 22, padding: '12px 14px', borderRadius: 10, background: 'rgba(255,255,255,.04)', border: '1px solid #33301F' }}>
+      <div style={{ fontSize: 12, color: '#D8D5CB', lineHeight: 1.5 }}>
+        Je voortgang wordt automatisch opgeslagen — je kunt altijd later verdergaan via deze link.
+      </div>
+      <div style={{ display: 'flex', gap: 8, marginTop: 9 }}>
+        <button
+          type="button"
+          onClick={copyLink}
+          style={{ flex: 1, border: '1px solid #514E44', background: 'transparent', color: '#FFFFFF', borderRadius: 7, padding: '7px 8px', fontSize: 11.5, cursor: 'pointer' }}
+        >
+          {copyState === 'copied' ? '✓ Gekopieerd' : copyState === 'error' ? 'Kon niet kopiëren' : 'Kopieer link'}
+        </button>
+        <button
+          type="button"
+          onClick={() => setOpen((o) => !o)}
+          style={{ flex: 1, border: '1px solid #514E44', background: 'transparent', color: '#FFFFFF', borderRadius: 7, padding: '7px 8px', fontSize: 11.5, cursor: 'pointer' }}
+        >
+          {open ? 'Sluiten' : 'E-mail mij de link'}
+        </button>
+      </div>
+      {open && (
+        <div style={{ marginTop: 8, display: 'flex', gap: 6 }}>
+          <input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="jouw@email.nl"
+            style={{ flex: 1, minWidth: 0, border: '1px solid #514E44', background: '#26241A', color: '#FFFFFF', borderRadius: 7, padding: '7px 9px', fontSize: 12 }}
+          />
+          <button
+            type="button"
+            onClick={sendLink}
+            disabled={emailState === 'sending' || !email.trim()}
+            style={{
+              flex: 'none', border: 'none', background: '#E6C858', color: '#1D1D1D', borderRadius: 7, padding: '7px 12px',
+              fontSize: 11.5, fontWeight: 600, cursor: emailState === 'sending' ? 'wait' : 'pointer', opacity: emailState === 'sending' ? 0.7 : 1,
+            }}
+          >
+            {emailState === 'sent' ? '✓ Verstuurd' : emailState === 'error' ? 'Mislukt' : emailState === 'sending' ? '…' : 'Verstuur'}
+          </button>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -101,6 +188,8 @@ export default function StepShell({ briefId, current, brief, subtitle, bigNum, k
           })}
         </div>
 
+        {brief && briefId && <ResumeCard briefId={briefId} defaultEmail={brief.contactEmail} />}
+
         <div style={{ display: 'flex', gap: 6, alignItems: 'flex-end', margin: '24px 0' }}>
           {[6, 10, 14, 10, 6].map((h, i) => (
             <span key={i} style={{ display: 'block', width: 3, height: h, borderRadius: 2, background: '#E6C858', opacity: 0.55 }} />
@@ -159,6 +248,13 @@ export default function StepShell({ briefId, current, brief, subtitle, bigNum, k
       </div>
 
       <style jsx>{`
+        .tfa-shell {
+          animation: tfa-shell-in .5s cubic-bezier(.19, 1, .22, 1) both;
+        }
+        @keyframes tfa-shell-in {
+          from { opacity: 0; transform: translateY(14px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
         @media (max-width: 900px) {
           .tfa-shell {
             flex-direction: column;
@@ -177,8 +273,12 @@ export default function StepShell({ briefId, current, brief, subtitle, bigNum, k
             padding: 32px 24px;
           }
         }
+        .tfa-step-row {
+          transition: background .14s ease, transform .14s ease;
+        }
         .tfa-step-row:hover {
-          background: rgba(255, 255, 255, 0.05);
+          background: rgba(230, 200, 88, 0.14);
+          transform: translateX(2px);
         }
       `}</style>
     </div>

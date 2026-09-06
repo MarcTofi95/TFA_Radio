@@ -25,8 +25,10 @@ function formatTime(sec) {
 export default function MusicPage({ params }) {
   const { id } = params;
   const router = useRouter();
-  const { brief, loading, saveState, schedulePatch, flushPending, patch } = useBrief(id);
+  const { brief, loading, schedulePatch, flushPending, patch } = useBrief(id);
   const showLoader = useMinDelay(loading, 2000);
+  // See the identical comment in contact/page.js.
+  const [navigating, setNavigating] = useState(false);
   const [selectedTracks, setSelectedTracks] = useState([]);
   const [openPlaylistId, setOpenPlaylistId] = useState(null);
   const [playingTrackId, setPlayingTrackId] = useState(null);
@@ -36,6 +38,7 @@ export default function MusicPage({ params }) {
   const [categories, setCategories] = useState([]);
   const [poolLoading, setPoolLoading] = useState(true);
   const audioRef = useRef(null);
+  const rafRef = useRef(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -80,12 +83,31 @@ export default function MusicPage({ params }) {
   }, []);
 
   function stopAudio() {
+    if (rafRef.current) {
+      cancelAnimationFrame(rafRef.current);
+      rafRef.current = null;
+    }
     if (audioRef.current) {
       audioRef.current.pause();
       audioRef.current = null;
     }
     setCurrentTime(0);
     setDuration(0);
+  }
+
+  // Drives the scrubber off requestAnimationFrame instead of the <audio>
+  // element's own `timeupdate` event — timeupdate only fires a handful of
+  // times a second (browsers throttle it well below 60fps), which is why
+  // the bar used to visibly stutter. Polling currentTime every animation
+  // frame instead keeps it smooth.
+  function startProgressLoop() {
+    if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    function tick() {
+      if (!audioRef.current) return;
+      setCurrentTime(audioRef.current.currentTime || 0);
+      rafRef.current = requestAnimationFrame(tick);
+    }
+    rafRef.current = requestAnimationFrame(tick);
   }
 
   // ±5s skip and drag-to-seek for the currently playing preview — see the
@@ -114,15 +136,15 @@ export default function MusicPage({ params }) {
   // least one track. Any track whose category isn't in the known list
   // (shouldn't normally happen) still gets its own group, appended after.
   const byCategory = {};
-  categories.forEach((cat) => { byCategory[cat] = { id: cat, name: cat, tracks: [] }; });
+  categories.forEach((cat) => { byCategory[cat.name] = { id: cat.name, name: cat.name, description: cat.description || '', tracks: [] }; });
   tracks.forEach((t) => {
     const cat = t.category || 'Overig';
-    if (!byCategory[cat]) byCategory[cat] = { id: cat, name: cat, tracks: [] };
+    if (!byCategory[cat]) byCategory[cat] = { id: cat, name: cat, description: '', tracks: [] };
     byCategory[cat].tracks.push(t);
   });
-  const known = categories.filter((c) => byCategory[c]).map((c) => byCategory[c]);
+  const known = categories.filter((c) => byCategory[c.name]).map((c) => byCategory[c.name]);
   const extra = Object.values(byCategory)
-    .filter((pl) => !categories.includes(pl.id))
+    .filter((pl) => !categories.some((c) => c.name === pl.id))
     .sort((a, b) => a.name.localeCompare(b.name, 'nl'));
   const playlists = known.concat(extra);
 
@@ -185,10 +207,10 @@ export default function MusicPage({ params }) {
     if (track.audioUrl) {
       const audio = new Audio(track.audioUrl);
       audioRef.current = audio;
-      audio.onended = () => { setPlayingTrackId((c) => (c === track.id ? null : c)); setCurrentTime(0); };
-      audio.ontimeupdate = () => setCurrentTime(audio.currentTime || 0);
+      audio.onended = () => { setPlayingTrackId((c) => (c === track.id ? null : c)); if (rafRef.current) cancelAnimationFrame(rafRef.current); setCurrentTime(0); };
       audio.onloadedmetadata = () => setDuration(audio.duration || 0);
       audio.play().catch(() => {});
+      startProgressLoop();
       setPlayingTrackId(track.id);
     } else {
       setPlayingTrackId(track.id);
@@ -198,6 +220,7 @@ export default function MusicPage({ params }) {
 
   async function next() {
     if (selectedTracks.length === 0) return;
+    setNavigating(true);
     stopAudio();
     setPlayingTrackId(null);
     flushPending();
@@ -205,7 +228,7 @@ export default function MusicPage({ params }) {
     router.push(`/brief/${id}/overview`);
   }
 
-  if (showLoader) return <Preloader />;
+  if (showLoader || navigating) return <Preloader />;
 
   if (!brief) {
     return (
@@ -245,7 +268,10 @@ export default function MusicPage({ params }) {
                       <div style={{ fontSize: 14, fontWeight: 600 }}>{pl.name}</div>
                       {hasSelection && <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#E6C858' }} />}
                     </div>
-                    <div style={{ fontSize: 12, color: '#5C5850', marginTop: 2, lineHeight: 1.4 }}>{pl.tracks.length} track{pl.tracks.length === 1 ? '' : 's'}</div>
+                    {pl.description && (
+                      <div style={{ fontSize: 12, color: '#5C5850', marginTop: 3, lineHeight: 1.4, maxWidth: 460 }}>{pl.description}</div>
+                    )}
+                    <div style={{ fontSize: 11.5, color: '#8C8880', marginTop: 3, lineHeight: 1.4 }}>{pl.tracks.length} track{pl.tracks.length === 1 ? '' : 's'}</div>
                   </div>
                   <span style={{ transform: isOpen ? 'rotate(180deg)' : 'none', transition: 'transform .15s ease' }}>▾</span>
                 </div>
@@ -273,12 +299,19 @@ export default function MusicPage({ params }) {
                           <button type="button" onClick={(e) => { e.stopPropagation(); playPreview(track); }} style={{ flex: 'none', width: 30, height: 30, borderRadius: '50%', border: '1px solid #C9C5B9', background: '#FBF9EC', cursor: 'pointer' }}>
                             {isPlaying ? '❚❚' : '▶'}
                           </button>
-                          {isPlaying && track.audioUrl ? (
-                            // Flips the title/artist text in place into a compact
-                            // scrubber while this track plays — same row height,
-                            // no dropdown — rather than opening extra space below
-                            // every track just to offer seek/skip controls.
-                            <div onClick={(e) => e.stopPropagation()} style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
+                          {/* The title stays visible whether or not this track is
+                              playing — it used to be swapped out for the scrubber,
+                              which made it impossible to tell which track was
+                              playing once you'd pressed play. While playing, the
+                              title/artist just shrinks to make room for a compact
+                              scrubber alongside it, rather than dropping open a
+                              panel below. */}
+                          <div style={{ flex: isPlaying && track.audioUrl ? '0 1 34%' : '1 1 auto', minWidth: 0 }}>
+                            <div style={{ fontSize: 12.5, fontWeight: selected ? 600 : 500, color: '#1D1D1D', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{track.title}</div>
+                            <div style={{ fontSize: 11, color: '#8C8880', marginTop: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{track.artist}{track.artist && track.duration ? ' · ' : ''}{track.duration}</div>
+                          </div>
+                          {isPlaying && track.audioUrl && (
+                            <div onClick={(e) => e.stopPropagation()} style={{ flex: '1 1 auto', minWidth: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
                               <button type="button" onClick={() => skipPreview(-5)} title="5 seconden terug" style={{ border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 13, color: '#5C5850', flex: 'none', padding: '2px' }}>⏮</button>
                               <span style={{ fontSize: 10.5, color: '#8C6D1F', flex: 'none', width: 28, textAlign: 'right' }}>{formatTime(currentTime)}</span>
                               <input
@@ -292,11 +325,6 @@ export default function MusicPage({ params }) {
                               />
                               <span style={{ fontSize: 10.5, color: '#8C6D1F', flex: 'none', width: 28 }}>{formatTime(duration)}</span>
                               <button type="button" onClick={() => skipPreview(5)} title="5 seconden vooruit" style={{ border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 13, color: '#5C5850', flex: 'none', padding: '2px' }}>⏭</button>
-                            </div>
-                          ) : (
-                            <div style={{ flex: 1, minWidth: 0 }}>
-                              <div style={{ fontSize: 12.5, fontWeight: selected ? 600 : 500, color: '#1D1D1D', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{track.title}</div>
-                              <div style={{ fontSize: 11, color: '#8C8880', marginTop: 1 }}>{track.artist}{track.artist && track.duration ? ' · ' : ''}{track.duration}</div>
                             </div>
                           )}
                           <button
@@ -326,15 +354,50 @@ export default function MusicPage({ params }) {
       {selectedTracks.length > 0 && (
         <div style={{ marginTop: 16, borderRadius: 10, padding: '14px 16px', fontSize: 12.5, color: '#383209', lineHeight: 1.5, background: '#E6C858' }}>
           <div>{selectedTracks.length > 1 ? 'Gekozen tracks (max. 3, TFA levert er 1):' : 'Gekozen track:'}</div>
-          {selectedTracks.map((t, i) => (
-            <div key={t.id} style={{ marginTop: 7, marginLeft: 8, padding: '7px 10px', background: '#FFFFFF', borderRadius: 6, display: 'flex', alignItems: 'center', gap: 10 }}>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontWeight: 700, fontSize: 12.5, color: '#1D1D1D' }}>{t.title}</div>
-                <div style={{ fontSize: 11, color: '#5C5850', marginTop: 1 }}>{t.playlistName}</div>
+          {selectedTracks.map((t, i) => {
+            // The saved selection only stores id/title/artist/playlist — not
+            // audioUrl — so look the full track up in the loaded pool to get
+            // something playable. Falls back to no preview button if the
+            // track can't be found (pool still loading, or since removed
+            // from the library).
+            const fullTrack = tracks.find((tt) => tt.id === t.id);
+            const isPlaying = playingTrackId === t.id;
+            return (
+              <div key={t.id} style={{ marginTop: 7, marginLeft: 8, padding: '7px 10px', background: '#FFFFFF', borderRadius: 6, display: 'flex', alignItems: 'center', gap: 10 }}>
+                {fullTrack && fullTrack.audioUrl && (
+                  <button
+                    type="button"
+                    onClick={() => playPreview(fullTrack)}
+                    style={{ flex: 'none', width: 26, height: 26, borderRadius: '50%', border: '1px solid #C9C5B9', background: '#FBF9EC', cursor: 'pointer', fontSize: 11 }}
+                  >
+                    {isPlaying ? '❚❚' : '▶'}
+                  </button>
+                )}
+                <div style={{ flex: isPlaying && fullTrack && fullTrack.audioUrl ? '0 1 34%' : '1 1 auto', minWidth: 0 }}>
+                  <div style={{ fontWeight: 700, fontSize: 12.5, color: '#1D1D1D', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{t.title}</div>
+                  <div style={{ fontSize: 11, color: '#5C5850', marginTop: 1 }}>{t.playlistName}</div>
+                </div>
+                {isPlaying && fullTrack && fullTrack.audioUrl && (
+                  <div style={{ flex: '1 1 auto', minWidth: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <button type="button" onClick={() => skipPreview(-5)} title="5 seconden terug" style={{ border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 13, color: '#5C5850', flex: 'none', padding: '2px' }}>⏮</button>
+                    <span style={{ fontSize: 10.5, color: '#8C6D1F', flex: 'none', width: 28, textAlign: 'right' }}>{formatTime(currentTime)}</span>
+                    <input
+                      type="range"
+                      min={0}
+                      max={duration || 0}
+                      step={0.01}
+                      value={Math.min(currentTime, duration || 0)}
+                      onChange={seekPreview}
+                      style={{ flex: 1, minWidth: 0, accentColor: '#E6C858', cursor: 'pointer' }}
+                    />
+                    <span style={{ fontSize: 10.5, color: '#8C6D1F', flex: 'none', width: 28 }}>{formatTime(duration)}</span>
+                    <button type="button" onClick={() => skipPreview(5)} title="5 seconden vooruit" style={{ border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 13, color: '#5C5850', flex: 'none', padding: '2px' }}>⏭</button>
+                  </div>
+                )}
+                <button type="button" onClick={() => removeTrack(t.id)} aria-label="Verwijderen" style={{ flex: 'none', width: 24, height: 24, borderRadius: '50%', border: 'none', background: 'transparent', cursor: 'pointer' }}>✕</button>
               </div>
-              <button type="button" onClick={() => removeTrack(t.id)} aria-label="Verwijderen" style={{ flex: 'none', width: 24, height: 24, borderRadius: '50%', border: 'none', background: 'transparent', cursor: 'pointer' }}>✕</button>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
@@ -343,7 +406,6 @@ export default function MusicPage({ params }) {
           Bevestigen — verder naar het overzicht
         </button>
       </div>
-      <div style={{ fontSize: 11, color: '#8C8880', textAlign: 'right', marginTop: 10, height: 14 }}>{saveState}</div>
       <p style={{ marginTop: 20, fontSize: 11.5, color: '#8C8880', lineHeight: 1.5 }}>Twijfel je tussen twee tracks? Je kunt je keuze altijd nog aanpassen voordat je alles verstuurt.</p>
 
       <style jsx>{`

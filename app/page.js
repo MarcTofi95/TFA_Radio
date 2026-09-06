@@ -18,14 +18,14 @@ export default function HomePage() {
               TFA Commercial Productie
             </div>
             <Link href="/sign-in" style={{ fontSize: 13, fontWeight: 600, color: '#E6C858', textDecoration: 'underline', textUnderlineOffset: 2 }}>
-              Producer login →
+              Admin login →
             </Link>
           </header>
 
           <main style={{ maxWidth: 880, margin: '60px auto 0', padding: '0 20px 90px', textAlign: 'center' }}>
             <div style={{ fontSize: 13, letterSpacing: '.09em', textTransform: 'uppercase', color: '#E6C858', fontWeight: 600 }}>Radiocommercials, zonder gedoe</div>
             <h1 style={{ fontFamily: "'Playfair Display', Georgia, serif", fontWeight: 600, fontSize: 52, lineHeight: 1.1, margin: '18px 0 20px', color: '#FBF9EC' }}>
-              Van brief tot uitzending, in zeven simpele stappen.
+              Van brief tot uitzending, in 7 simpele stappen.
             </h1>
             <p style={{ fontSize: 17, lineHeight: 1.6, color: '#DEDCD7', maxWidth: 620, margin: '0 auto 36px' }}>
               Vertel ons over je merk, je product en je doelgroep. TFA schrijft het script, kiest de stem en de muziek — jij keurt
@@ -72,9 +72,9 @@ export default function HomePage() {
             </div>
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'flex-end', textAlign: 'right' }}>
             <div className="tfa-footer-heading">Volg ons</div>
-            <div style={{ display: 'flex', gap: 10 }}>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
               <a href="https://www.instagram.com/tfa.studio" target="_blank" rel="noopener noreferrer" aria-label="Instagram" className="tfa-footer-icon">
                 <InstagramIcon />
               </a>

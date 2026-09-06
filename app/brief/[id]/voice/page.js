@@ -27,8 +27,10 @@ function formatTime(sec) {
 export default function VoicePage({ params }) {
   const { id } = params;
   const router = useRouter();
-  const { brief, loading, saveState, schedulePatch, flushPending, patch } = useBrief(id);
+  const { brief, loading, schedulePatch, flushPending, patch } = useBrief(id);
   const showLoader = useMinDelay(loading, 2000);
+  // See the identical comment in contact/page.js.
+  const [navigating, setNavigating] = useState(false);
   const [form, setForm] = useState({ voiceGender: '', voiceAgeRange: '', voiceStyleTags: [], voiceNote: '', selectedVoiceId: '' });
   const [phase, setPhase] = useState('questions');
   const [playingId, setPlayingId] = useState(null);
@@ -37,6 +39,7 @@ export default function VoicePage({ params }) {
   const [voicePool, setVoicePool] = useState([]);
   const [poolLoading, setPoolLoading] = useState(true);
   const audioRef = useRef(null);
+  const rafRef = useRef(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -76,12 +79,32 @@ export default function VoicePage({ params }) {
   }, []);
 
   function stopAudio() {
+    if (rafRef.current) {
+      cancelAnimationFrame(rafRef.current);
+      rafRef.current = null;
+    }
     if (audioRef.current) {
       audioRef.current.pause();
       audioRef.current = null;
     }
     setCurrentTime(0);
     setDuration(0);
+  }
+
+  // Drives the scrubber off requestAnimationFrame instead of the <audio>
+  // element's own `timeupdate` event — timeupdate only fires a handful of
+  // times a second (browsers throttle it well below 60fps), which is why
+  // the bar used to visibly stutter. Polling currentTime every animation
+  // frame instead keeps it smooth — see the identical pair in
+  // music/page.js.
+  function startProgressLoop() {
+    if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    function tick() {
+      if (!audioRef.current) return;
+      setCurrentTime(audioRef.current.currentTime || 0);
+      rafRef.current = requestAnimationFrame(tick);
+    }
+    rafRef.current = requestAnimationFrame(tick);
   }
 
   // ±5s skip and drag-to-seek for the currently playing preview — kept as
@@ -179,10 +202,10 @@ export default function VoicePage({ params }) {
     if (voice.audioUrl) {
       const audio = new Audio(voice.audioUrl);
       audioRef.current = audio;
-      audio.onended = () => { setPlayingId((c) => (c === voice.id ? null : c)); setCurrentTime(0); };
-      audio.ontimeupdate = () => setCurrentTime(audio.currentTime || 0);
+      audio.onended = () => { setPlayingId((c) => (c === voice.id ? null : c)); if (rafRef.current) cancelAnimationFrame(rafRef.current); setCurrentTime(0); };
       audio.onloadedmetadata = () => setDuration(audio.duration || 0);
       audio.play().catch(() => {});
+      startProgressLoop();
       setPlayingId(voice.id);
     } else {
       setPlayingId(voice.id);
@@ -198,6 +221,7 @@ export default function VoicePage({ params }) {
 
   async function next() {
     if (!form.selectedVoiceId) return;
+    setNavigating(true);
     stopAudio();
     setPlayingId(null);
     flushPending();
@@ -205,7 +229,7 @@ export default function VoicePage({ params }) {
     router.push(`/brief/${id}/music`);
   }
 
-  if (showLoader) return <Preloader />;
+  if (showLoader || navigating) return <Preloader />;
 
   if (!brief) {
     return (
@@ -337,7 +361,6 @@ export default function VoicePage({ params }) {
         </>
       )}
       <p style={{ marginTop: 26, fontSize: 11.5, color: '#8C8880', lineHeight: 1.5 }}>Twijfel je tussen twee stemmen? Je kunt je keuze altijd nog aanpassen voordat je alles verstuurt.</p>
-      <div style={{ fontSize: 11, color: '#8C8880', textAlign: 'center', marginTop: 10, height: 14 }}>{saveState}</div>
     </StepShell>
   );
 }

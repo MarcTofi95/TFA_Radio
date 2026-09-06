@@ -38,6 +38,9 @@ export default function ScriptPage({ params }) {
   const [selectingVersionId, setSelectingVersionId] = useState(null);
   const [firstLoadDone, setFirstLoadDone] = useState(false);
   const showLoader = useMinDelay(!firstLoadDone, 2000);
+  // Set the instant a "continue" action is clicked, before its save call
+  // resolves — see the identical comment in contact/page.js.
+  const [navigating, setNavigating] = useState(false);
   const [scriptText, setScriptText] = useState('');
   const [varText, setVarText] = useState('');
   const scriptFocused = useRef(false);
@@ -168,6 +171,10 @@ export default function ScriptPage({ params }) {
 
   async function approveAndContinue() {
     if (!brief || !brief.generatedScript) return;
+    // Only the "no variation needed" path actually navigates away (the
+    // variation path just reveals the variation panel further down this
+    // same page) — so only that path shows the preloader.
+    if (!brief.needsVariations) setNavigating(true);
     clearTimeout(saveTimer.current);
     try {
       await fetch(`/api/briefs/${id}/edit`, {
@@ -202,6 +209,7 @@ export default function ScriptPage({ params }) {
   }
 
   async function continueToVoice() {
+    setNavigating(true);
     clearTimeout(varSaveTimer.current);
     try {
       await fetch(`/api/briefs/${id}/edit`, {
@@ -213,7 +221,7 @@ export default function ScriptPage({ params }) {
     router.push(`/brief/${id}/voice`);
   }
 
-  if (showLoader) return <Preloader />;
+  if (showLoader || navigating) return <Preloader />;
 
   if (!brief) {
     return (

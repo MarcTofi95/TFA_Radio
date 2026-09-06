@@ -12,8 +12,12 @@ import { MONTH_NAMES } from '../../../../components/flowData';
 export default function DeliveryPage({ params }) {
   const { id } = params;
   const router = useRouter();
-  const { brief, loading, saveState, schedulePatch, flushPending, patch } = useBrief(id);
+  const { brief, loading, schedulePatch, flushPending, patch } = useBrief(id);
   const showLoader = useMinDelay(loading, 2000);
+  // See the identical comment in contact/page.js: set the instant "Volgende"
+  // is clicked so the preloader takes over immediately instead of a beat of
+  // stale page while the save is still in flight.
+  const [navigating, setNavigating] = useState(false);
   const [form, setForm] = useState({
     hoofdspotLength: '20',
     needsVariations: null,
@@ -48,12 +52,13 @@ export default function DeliveryPage({ params }) {
   }
 
   async function next() {
+    setNavigating(true);
     flushPending();
     await patch(form);
     router.push(`/brief/${id}/details`);
   }
 
-  if (showLoader) return <Preloader />;
+  if (showLoader || navigating) return <Preloader />;
 
   const todayISO = new Date().toISOString().slice(0, 10);
   const currentMonth = new Date().getMonth() + 1;
@@ -149,7 +154,6 @@ export default function DeliveryPage({ params }) {
           Volgende — verder naar je brief
         </button>
       </div>
-      <div style={{ fontSize: 11, color: '#8C8880', textAlign: 'right', marginTop: 10, height: 14 }}>{saveState}</div>
     </StepShell>
   );
 }

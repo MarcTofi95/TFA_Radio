@@ -285,9 +285,27 @@ function formatTime(sec) {
 // specific moment in a track or voice demo.
 function AudioPlayer({ src }) {
   const audioRef = useRef(null);
+  const rafRef = useRef(null);
   const [playing, setPlaying] = useState(false);
   const [current, setCurrent] = useState(0);
   const [duration, setDuration] = useState(0);
+
+  // Poll currentTime via requestAnimationFrame while playing instead of
+  // relying on the <audio> element's own `timeupdate` event, which browsers
+  // throttle to well below 60fps — that throttling is what made this
+  // scrubber visibly stutter.
+  useEffect(() => {
+    if (!playing) {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      return undefined;
+    }
+    function tick() {
+      if (audioRef.current) setCurrent(audioRef.current.currentTime || 0);
+      rafRef.current = requestAnimationFrame(tick);
+    }
+    rafRef.current = requestAnimationFrame(tick);
+    return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); };
+  }, [playing]);
 
   function togglePlay() {
     const audio = audioRef.current;
@@ -316,8 +334,7 @@ function AudioPlayer({ src }) {
         onPlay={() => setPlaying(true)}
         onPause={() => setPlaying(false)}
         onLoadedMetadata={(e) => setDuration(e.currentTarget.duration || 0)}
-        onTimeUpdate={(e) => setCurrent(e.currentTarget.currentTime || 0)}
-        onEnded={() => setPlaying(false)}
+        onEnded={() => { setPlaying(false); setCurrent(0); }}
         style={{ display: 'none' }}
       />
       <button type="button" onClick={() => skip(-5)} title="5 seconden terug" style={{ border: 'none', background: 'transparent', color: '#5C5850', cursor: 'pointer', fontSize: 15, flex: 'none', padding: '4px 2px' }}>
