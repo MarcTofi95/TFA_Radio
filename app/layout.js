@@ -1,8 +1,22 @@
 import { ClerkProvider } from '@clerk/nextjs';
 
 export const metadata = {
-  title: 'TFA Commercial Productie',
+  title: 'TFA SpotFlow',
   description: 'Radiocommercials: van brief tot uitzending.',
+  manifest: '/manifest.webmanifest',
+  // iOS Safari ignores the manifest above — this is what it reads instead
+  // when the user does Share → "Add to Home Screen".
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'black-translucent',
+    title: 'SpotFlow',
+  },
+};
+
+// Separate from `metadata` per Next.js 14's viewport/themeColor split —
+// this is what Chrome/Edge use to color the install prompt + browser chrome.
+export const viewport = {
+  themeColor: '#1D1D1D',
 };
 
 const clerkConfigured = !!process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY && !!process.env.CLERK_SECRET_KEY;

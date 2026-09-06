@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { listBriefs } from '../../../lib/db';
 import { buildReportData } from '../../../lib/reports';
-import BrandMark from '../../../components/BrandMark';
+import SpotFlowLogo from '../../../components/SpotFlowLogo';
 
 // Real, changing data — never statically cache this page.
 export const dynamic = 'force-dynamic';
@@ -76,9 +76,8 @@ export default async function ReportsPage() {
   return (
     <div style={{ minHeight: '100vh', background: '#DEDCD7', display: 'flex' }} className="tfa-dash-shell">
       <aside style={{ flex: '0 0 240px', background: '#1D1D1D', color: '#FFFFFF', padding: '32px 22px' }} className="tfa-dash-sidebar">
-        <Link href="/" className="tfa-dash-sidebar-brand" style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, letterSpacing: '.09em', textTransform: 'uppercase', color: '#E6C858', fontWeight: 500, textDecoration: 'none' }}>
-          <BrandMark size={22} />
-          TFA
+        <Link href="/" style={{ textDecoration: 'none' }}>
+          <SpotFlowLogo size={24} variant="dark" className="tfa-dash-sidebar-brand" />
         </Link>
         <nav className="tfa-dash-nav" style={{ marginTop: 32, display: 'flex', flexDirection: 'column', gap: 4 }}>
           <Link href="/dashboard" className="tfa-dash-navlink" style={{ padding: '10px 12px', borderRadius: 8, color: '#B9B6AC', fontSize: 14, textDecoration: 'none' }}>Dashboard</Link>

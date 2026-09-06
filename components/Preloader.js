@@ -13,17 +13,45 @@ import { useEffect, useRef } from 'react';
 // feels snappier — separate from useMinDelay(loading, ms), which controls
 // how long the Preloader stays mounted/visible, not the video's own pace.
 //
-// No entrance/exit animation lives here on purpose: a step transition mounts
-// a fresh Preloader instance twice in a row (once instantly when "next" is
-// clicked, again when the next page mounts), so any flourish drawn inside
-// this component would replay twice back to back. The one gold swipe
-// transition in this flow lives in StepShell instead, since that mounts
-// exactly once — right as the preloader hands off to the next page.
+// A step transition mounts a fresh Preloader instance twice in a row (once
+// instantly when "next" is clicked, again when the next page mounts — see
+// contact/page.js's `navigating` state). Those are two different <video>
+// DOM nodes, and a freshly mounted <video> normally starts from frame 0 —
+// which is exactly what read as "the animation plays twice": it visibly
+// snapped back to the start partway through a single transition. Rather
+// than restructure the loading flow to share one persistent video element
+// across route changes, `lastPlaybackTime` below is a module-scoped (not
+// React) variable that survives the unmount/remount, so a new mount picks
+// up playback where the previous one left off instead of restarting — the
+// two mounts then read as one continuous loop, which is what "I only see it
+// once" actually means from the client's side.
+let lastPlaybackTime = 0;
+
 export default function Preloader({ fullScreen = true }) {
   const videoRef = useRef(null);
 
   useEffect(() => {
-    if (videoRef.current) videoRef.current.playbackRate = 2;
+    const el = videoRef.current;
+    if (!el) return undefined;
+    el.playbackRate = 2;
+
+    function resume() {
+      if (el.duration) el.currentTime = lastPlaybackTime % el.duration;
+      const p = el.play();
+      if (p && typeof p.catch === 'function') p.catch(() => {});
+    }
+    if (el.readyState >= 1) resume();
+    else el.addEventListener('loadedmetadata', resume, { once: true });
+
+    function track() {
+      lastPlaybackTime = el.currentTime;
+    }
+    el.addEventListener('timeupdate', track);
+    return () => {
+      lastPlaybackTime = el.currentTime || lastPlaybackTime;
+      el.removeEventListener('timeupdate', track);
+      el.removeEventListener('loadedmetadata', resume);
+    };
   }, []);
 
   return (
@@ -42,11 +70,9 @@ export default function Preloader({ fullScreen = true }) {
       <video
         ref={videoRef}
         src="/brand/preloader.mp4"
-        autoPlay
         loop
         muted
         playsInline
-        onLoadedMetadata={(e) => { e.currentTarget.playbackRate = 2; }}
         style={{ width: 140, height: 140, objectFit: 'contain' }}
       />
     </div>

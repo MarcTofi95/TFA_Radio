@@ -1,5 +1,5 @@
 import { SignUp } from '@clerk/nextjs';
-import BrandMark from '../../../components/BrandMark';
+import SpotFlowLogo from '../../../components/SpotFlowLogo';
 
 const clerkConfigured = !!process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY && !!process.env.CLERK_SECRET_KEY;
 
@@ -16,10 +16,7 @@ export default function SignUpPage() {
   }
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: '#DEDCD7', gap: 22 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 13, letterSpacing: '.09em', textTransform: 'uppercase', color: '#1D1D1D', fontWeight: 600 }}>
-        <BrandMark size={26} />
-        TFA Studio
-      </div>
+      <SpotFlowLogo size={30} variant="light" />
       <SignUp path="/sign-up" routing="path" signInUrl="/sign-in" fallbackRedirectUrl="/dashboard" />
     </div>
   );

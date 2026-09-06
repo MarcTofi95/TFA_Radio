@@ -1,8 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import BrandMark from './BrandMark';
+import SpotFlowLogo from './SpotFlowLogo';
 import { STEPS, computeReached } from './flowData';
 
 function WaveIcon({ dim }) {
@@ -124,6 +124,47 @@ export default function StepShell({ briefId, current, brief, subtitle, bigNum, k
   const reached = computeReached(brief);
   const companyName = brief && brief.companyName && brief.companyName.trim() ? brief.companyName : null;
 
+  // Mobile rail: it starts collapsed to a slim strip of step numbers (see
+  // the mobile media query below). Tapping it the first time only EXPANDS
+  // it to show the full step list with labels — it does not jump straight
+  // to whatever step was tapped, since on a strip that narrow a tap is too
+  // easy to land on the wrong number by accident. A second tap, now that
+  // the full row is visible, navigates normally. Tapping anywhere outside
+  // the rail while it's expanded collapses it again.
+  const sidebarRef = useRef(null);
+  const [isMobileRail, setIsMobileRail] = useState(false);
+  const [railExpanded, setRailExpanded] = useState(false);
+
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 900px)');
+    const update = () => setIsMobileRail(mq.matches);
+    update();
+    mq.addEventListener('change', update);
+    return () => mq.removeEventListener('change', update);
+  }, []);
+
+  useEffect(() => {
+    if (!railExpanded) return undefined;
+    function handleClickOutside(e) {
+      if (sidebarRef.current && !sidebarRef.current.contains(e.target)) {
+        setRailExpanded(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [railExpanded]);
+
+  // Capture phase, ahead of next/link's own click handler — preventDefault()
+  // here is enough to stop it from navigating (it bails out early when the
+  // event already arrives with defaultPrevented), so the very first tap on
+  // the collapsed rail only expands it instead of also firing the link.
+  function handleRailClick(e) {
+    if (isMobileRail && !railExpanded) {
+      e.preventDefault();
+      setRailExpanded(true);
+    }
+  }
+
   return (
     <div style={{ background: '#DEDCD7', display: 'flex' }} className="tfa-shell">
       {/* The one gold swipe transition in the whole flow: StepShell mounts
@@ -136,16 +177,15 @@ export default function StepShell({ briefId, current, brief, subtitle, bigNum, k
           itself. */}
       <span className="tfa-shell-wipe" aria-hidden="true" />
       <div
+        ref={sidebarRef}
+        onClickCapture={handleRailClick}
         style={{
           flex: '0 0 300px', background: '#1D1D1D', color: '#FFFFFF', padding: '36px 26px',
           display: 'flex', flexDirection: 'column',
         }}
-        className="tfa-sidebar"
+        className={`tfa-sidebar${railExpanded ? ' tfa-sidebar--expanded' : ''}`}
       >
-        <div className="tfa-sidebar-brand" style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, letterSpacing: '.09em', textTransform: 'uppercase', color: '#E6C858', fontWeight: 500 }}>
-          <BrandMark size={22} />
-          <span className="tfa-sidebar-brand-label">TFA</span>
-        </div>
+        <SpotFlowLogo size={26} variant="dark" className="tfa-sidebar-brand" textClassName="tfa-sidebar-brand-label" />
         {/* On step 1 the client hasn't had a chance to fill in the company
             name yet (it's the very field this step asks for), so showing a
             "Nog geen bedrijfsnaam" placeholder here reads as if something's
@@ -196,7 +236,7 @@ export default function StepShell({ briefId, current, brief, subtitle, bigNum, k
             const inner = (
               <>
                 <span className="tfa-step-wave"><WaveIcon dim={!isCurrent && !isDone} /></span>
-                <span className={`tfa-step-num ${numStateClass}`} style={{ fontSize: 12, width: 16, flex: 'none', fontWeight: 500, color: numColor }}>
+                <span className={`tfa-step-num ${numStateClass}`} style={{ flex: 'none', color: numColor }}>
                   {String(step.n).padStart(2, '0')}
                 </span>
                 <span className="tfa-step-label" style={labelStyle}>{step.label}</span>
@@ -316,11 +356,13 @@ export default function StepShell({ briefId, current, brief, subtitle, bigNum, k
            card all step aside (tfa-sidebar-extra) since there's no room and
            none of it is step-navigation — so the rail stays "visible but
            out of the way" while every step (including the current one) is
-           still one tap away. */
+           still one tap away. The numbers themselves are plain colored
+           text, no circle/frame around them — just a brighter, bolder gold
+           for the current step and a dim grey for ones not reached yet. */
         @media (max-width: 900px) {
           .tfa-sidebar {
-            flex: 0 0 64px !important;
-            padding: 18px 6px !important;
+            flex: 0 0 56px !important;
+            padding: 18px 4px !important;
             align-items: center;
           }
           .tfa-sidebar-brand-label,
@@ -330,11 +372,11 @@ export default function StepShell({ briefId, current, brief, subtitle, bigNum, k
           .tfa-step-nav {
             width: 100%;
             margin-top: 20px !important;
-            gap: 6px !important;
+            gap: 14px !important;
           }
           .tfa-step-item {
             justify-content: center;
-            padding: 4px 0 !important;
+            padding: 2px 0 !important;
             border-radius: 8px !important;
             border-left: none !important;
           }
@@ -343,33 +385,68 @@ export default function StepShell({ briefId, current, brief, subtitle, bigNum, k
             display: none;
           }
           .tfa-step-num {
-            width: 28px;
-            height: 28px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 11.5px !important;
+            width: auto;
+            font-size: 15px !important;
+            font-weight: 600;
           }
           .tfa-step-num--current {
-            background: #E6C858;
-            color: #1D1D1D !important;
+            color: #E6C858 !important;
+            font-weight: 700;
           }
           .tfa-step-num--done {
-            border: 1.5px solid #E6C858;
             color: #E6C858 !important;
+            opacity: 0.6;
           }
           .tfa-step-num--upcoming {
-            border: 1.5px solid #514E44;
-            color: #77746A !important;
+            color: #6B6860 !important;
           }
           .tfa-content {
             padding: 28px 20px !important;
+          }
+          /* First tap on the collapsed rail expands it into this overlay
+             instead of navigating — fixed positioning means it flies out
+             over the form rather than pushing/reflowing it. A second tap,
+             now that labels are visible, navigates normally. */
+          .tfa-sidebar--expanded {
+            position: fixed !important;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            flex: 0 0 220px !important;
+            width: 220px;
+            align-items: flex-start !important;
+            padding: 24px 18px !important;
+            z-index: 60;
+            box-shadow: 8px 0 28px rgba(0, 0, 0, 0.3);
+          }
+          .tfa-sidebar--expanded .tfa-step-nav {
+            gap: 2px !important;
+          }
+          .tfa-sidebar--expanded .tfa-step-item {
+            justify-content: flex-start;
+            padding: 9px 10px !important;
+          }
+          .tfa-sidebar--expanded .tfa-step-wave,
+          .tfa-sidebar--expanded .tfa-step-label {
+            display: inline-flex !important;
+          }
+          .tfa-sidebar--expanded .tfa-step-num {
+            font-size: 12px !important;
+            font-weight: 500;
           }
         }
         .tfa-step-item {
           background: transparent;
           border-left: 2px solid transparent;
+        }
+        /* Base size/weight for the step number live here — not inline —
+           so the mobile rules above (bigger, bolder, no inline value left
+           to fight) can actually apply. See the file-level note on inline
+           styles silently beating stylesheet rules. */
+        .tfa-step-num {
+          font-size: 12px;
+          width: 16px;
+          font-weight: 500;
         }
         .tfa-step-row {
           transition: background .15s ease, color .15s ease;

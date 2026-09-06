@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import BrandMark from '../components/BrandMark';
+import SpotFlowLogo from '../components/SpotFlowLogo';
 import BrandWave from '../components/BrandWave';
 import { InstagramIcon, LinkedInIcon, YouTubeIcon } from '../components/SocialIcons';
 
@@ -13,10 +13,7 @@ export default function HomePage() {
 
         <div style={{ position: 'relative', zIndex: 1 }}>
           <header style={{ maxWidth: 1180, margin: '0 auto', padding: '28px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 14, letterSpacing: '.09em', textTransform: 'uppercase', color: '#FBF9EC', fontWeight: 600 }}>
-              <BrandMark size={24} />
-              TFA Commercial Productie
-            </div>
+            <SpotFlowLogo size={30} variant="dark" />
             <Link href="/sign-in" style={{ fontSize: 13, fontWeight: 600, color: '#E6C858', textDecoration: 'underline', textUnderlineOffset: 2 }}>
               Admin login →
             </Link>
@@ -54,12 +51,17 @@ export default function HomePage() {
           the pitch, then the action. */}
 
       <footer style={{ maxWidth: 1180, margin: '0 auto', padding: '56px 20px 40px', borderTop: '1px solid #E3E0D5' }}>
-        <div className="tfa-footer-heading" style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 24 }}>
-          <BrandMark size={15} />
-          TFA
+        <div style={{ marginBottom: 24 }}>
+          <SpotFlowLogo size={20} variant="light" />
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 32, alignItems: 'start' }} className="tfa-footer-grid">
+        {/* alignItems: 'end' — not 'start' — so "Volg ons" and "Contact"
+            meet at the SAME bottom row instead of both starting level at
+            the top and trailing off at different heights (Contact's block
+            is taller — address + email/phone — than Volg ons's icon row +
+            link). Both columns stay anchored bottom-right/bottom-left of
+            the footer either way; this only changes which edge lines up. */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 32, alignItems: 'end' }} className="tfa-footer-grid">
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             <div className="tfa-footer-heading">Contact</div>
             <div style={{ fontSize: 12.5, lineHeight: 1.7, color: '#5C5850' }}>

@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { listBriefs } from '../../lib/db';
 import DashboardClient from '../../components/DashboardClient';
-import BrandMark from '../../components/BrandMark';
+import SpotFlowLogo from '../../components/SpotFlowLogo';
 
 // Real, changing data (submitted briefs) — never statically cache this page.
 export const dynamic = 'force-dynamic';
@@ -28,9 +28,8 @@ export default async function DashboardPage() {
         }}
         className="tfa-dash-sidebar"
       >
-        <Link href="/" className="tfa-dash-sidebar-brand" style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, letterSpacing: '.09em', textTransform: 'uppercase', color: '#E6C858', fontWeight: 500, textDecoration: 'none' }}>
-          <BrandMark size={22} />
-          TFA
+        <Link href="/" style={{ textDecoration: 'none' }}>
+          <SpotFlowLogo size={24} variant="dark" className="tfa-dash-sidebar-brand" />
         </Link>
         <nav className="tfa-dash-nav" style={{ marginTop: 32, display: 'flex', flexDirection: 'column', gap: 4 }}>
           <Link href="/dashboard" className="tfa-dash-navlink tfa-dash-navlink--active" style={{ padding: '10px 12px', borderRadius: 8, background: 'rgba(230,200,88,.12)', color: '#FFFFFF', fontWeight: 600, fontSize: 14, textDecoration: 'none' }}>
