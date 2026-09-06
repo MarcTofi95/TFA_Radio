@@ -53,6 +53,16 @@ export default function ScriptPage({ params }) {
   const [scriptText, setScriptText] = useState('');
   // One entry per requested variation (length driven by variationsCount).
   const [variations, setVariations] = useState([]);
+  // Which variation is currently shown — with more than one, they're
+  // reviewed one at a time (same page, no navigation) instead of all
+  // stacked underneath each other, which got unwieldy past two.
+  const [activeVarIdx, setActiveVarIdx] = useState(0);
+  // Per-variation "just saved" confirmation — the approve button used to
+  // give no feedback at all (it just fires a PATCH), which reads as "this
+  // button does nothing". Flips true right after a successful save, then
+  // clears itself after a moment.
+  const [savedFlash, setSavedFlash] = useState({});
+  const savedFlashTimers = useRef({});
   const scriptFocused = useRef(false);
   const saveTimer = useRef(null);
   // Set the instant an edit is made, cleared only once the debounced PATCH
@@ -233,6 +243,7 @@ export default function ScriptPage({ params }) {
   }
 
   function onVarChange(idx, value) {
+    setSavedFlash((f) => (f[idx] ? { ...f, [idx]: false } : f));
     setVariations((current) => {
       const next = current.slice();
       next[idx] = value;
@@ -252,13 +263,20 @@ export default function ScriptPage({ params }) {
       return next;
     });
   }
-  function varApprove(idx) {
+  async function varApprove(idx) {
     clearTimeout(variationsSaveTimer.current);
-    fetch(`/api/briefs/${id}/edit`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ variationScripts: JSON.stringify(variations) }),
-    }).catch(() => {});
+    try {
+      await fetch(`/api/briefs/${id}/edit`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ variationScripts: JSON.stringify(variations) }),
+      });
+    } catch (e) {}
+    setSavedFlash((f) => ({ ...f, [idx]: true }));
+    clearTimeout(savedFlashTimers.current[idx]);
+    savedFlashTimers.current[idx] = setTimeout(() => {
+      setSavedFlash((f) => ({ ...f, [idx]: false }));
+    }, 2000);
   }
 
   async function approveAndContinue() {
@@ -308,7 +326,7 @@ export default function ScriptPage({ params }) {
 
   if (!brief) {
     return (
-      <StepShell briefId={id} current={4} brief={null} bigNum="04" kicker="Klaar voor je review" title="Jouw script" backHref={`/brief/${id}/details`} backLabel="Terug naar de brief">
+      <StepShell briefId={id} current={4} brief={null} bigNum="04" kicker="Klaar voor je review" title="Jouw script" backHref={`/brief/${id}/details`} backLabel="Terug naar de brief" showWipe>
         <div style={{ background: '#FBF3F1', border: '1px solid #C2513F', borderRadius: 10, padding: '12px 14px', fontSize: 12.5, color: '#C2513F' }}>
           Geen brief gevonden bij deze link.
         </div>
@@ -363,6 +381,7 @@ export default function ScriptPage({ params }) {
       brief={brief}
       subtitle={'Hoofdspot · ' + spotLength + '″'}
       bigNum="04"
+      showWipe
       kicker="Klaar voor je review"
       title="Jouw script"
       hint="Zo vertelt TFA jouw verhaal in je hoofdspot — volledig geschreven op basis van je brief."
@@ -507,7 +526,16 @@ export default function ScriptPage({ params }) {
       )}
 
       <div style={{ marginTop: 24, paddingTop: 20, borderTop: '1px solid #EAE7DE', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-        {!unchanged && <button type="button" className="ghost-btn" onClick={resetScript}>Terugzetten naar scriptvoorstel</button>}
+        {!unchanged && (
+          <button
+            type="button"
+            className="ghost-btn"
+            onClick={resetScript}
+            style={{ width: 'auto', flex: 'none', border: '1.5px solid #B06156', color: '#B06156' }}
+          >
+            ↺ Terugzetten naar scriptvoorstel
+          </button>
+        )}
         <button type="button" className="btn-primary" disabled={!hasGenerated} onClick={approveAndContinue}>{approveLabel}</button>
       </div>
 
@@ -521,7 +549,33 @@ export default function ScriptPage({ params }) {
             waar {variationCount > 1 ? 'elke variatie' : 'deze variatie'} moet verschillen.
           </p>
 
-          {Array.from({ length: variationCount }).map((_, idx) => {
+          {variationCount > 1 && (
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 18 }}>
+              {Array.from({ length: variationCount }).map((_, i) => {
+                const vt = variations[i] !== undefined ? variations[i] : scriptText;
+                const customized = (vt || '').trim() !== scriptText.trim();
+                const isActive = i === activeVarIdx;
+                return (
+                  <button
+                    key={i}
+                    type="button"
+                    onClick={() => setActiveVarIdx(i)}
+                    style={{
+                      border: '1.5px solid ' + (isActive ? '#E6C858' : '#C9C5B9'),
+                      background: isActive ? '#FBF0C8' : '#FFFFFF',
+                      borderRadius: 999, padding: '6px 13px', fontSize: 12, fontWeight: isActive ? 700 : 500,
+                      color: '#1D1D1D', cursor: 'pointer',
+                    }}
+                  >
+                    Variatie {i + 1}{customized ? ' ✓' : ''}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          {(() => {
+            const idx = activeVarIdx;
             const varText = variations[idx] !== undefined ? variations[idx] : scriptText;
             const varTrimmed = (varText || '').trim();
             const varWords = wordCountOf(varTrimmed);
@@ -535,10 +589,7 @@ export default function ScriptPage({ params }) {
             const tokens = diffWords(scriptText, varText);
 
             return (
-              <div key={idx} style={{ marginTop: idx === 0 ? 0 : 28, paddingTop: idx === 0 ? 0 : 22, borderTop: idx === 0 ? 'none' : '1px dashed #EAE3C4' }}>
-                {variationCount > 1 && (
-                  <div style={{ fontSize: 12, fontWeight: 700, color: '#8C6D1F', marginBottom: 8 }}>Variatie {idx + 1} van {variationCount}</div>
-                )}
+              <div>
                 <textarea
                   style={{ minHeight: 90 }}
                   value={varText}
@@ -569,15 +620,36 @@ export default function ScriptPage({ params }) {
                   <div style={{ marginTop: 6, fontSize: 12.5, fontWeight: 500, color: varBarColor }}>{varStatusLabel}</div>
                 </div>
                 <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid #EAE7DE', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                  {!varUnchanged && <button type="button" className="ghost-btn" onClick={() => resetVar(idx)}>Terugzetten naar origineel</button>}
+                  {savedFlash[idx] && (
+                    <span style={{ fontSize: 12.5, color: '#1D7A46', fontWeight: 600 }}>✓ Opgeslagen</span>
+                  )}
+                  {!varUnchanged && (
+                    <button
+                      type="button"
+                      className="ghost-btn"
+                      onClick={() => resetVar(idx)}
+                      style={{ width: 'auto', flex: 'none', border: '1.5px solid #B06156', color: '#B06156' }}
+                    >
+                      ↺ Terugzetten naar origineel
+                    </button>
+                  )}
                   <button type="button" className="btn-primary" onClick={() => varApprove(idx)}>{varUnchanged ? 'Goedkeuren, dit is prima zo' : 'Wijzigingen opslaan en goedkeuren'}</button>
                 </div>
               </div>
             );
-          })}
+          })()}
 
-          <div style={{ marginTop: 20, paddingTop: 22, borderTop: '1px solid #EAE7DE', display: 'flex', justifyContent: 'flex-end' }}>
-            <button type="button" className="btn-primary" style={{ minWidth: 320, flex: 'none', whiteSpace: 'nowrap', padding: '14px 26px' }} onClick={continueToVoice}>Doorgaan naar de stem</button>
+          <div style={{ marginTop: 20, paddingTop: 22, borderTop: '1px solid #EAE7DE', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+            {activeVarIdx > 0 && (
+              <button type="button" className="ghost-btn" style={{ width: 'auto', flex: 'none' }} onClick={() => setActiveVarIdx(activeVarIdx - 1)}>
+                ← Vorige variatie
+              </button>
+            )}
+            {activeVarIdx < variationCount - 1 ? (
+              <button type="button" className="btn-primary" onClick={() => setActiveVarIdx(activeVarIdx + 1)}>Volgende variatie →</button>
+            ) : (
+              <button type="button" className="btn-primary" style={{ minWidth: 320, flex: 'none', whiteSpace: 'nowrap', padding: '14px 26px' }} onClick={continueToVoice}>Doorgaan naar de stem</button>
+            )}
           </div>
         </div>
       )}

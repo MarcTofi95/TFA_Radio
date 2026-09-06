@@ -96,7 +96,7 @@ export default function ContactPage({ params }) {
   if (showLoader || navigating) return <Preloader />;
 
   return (
-    <StepShell briefId={id} current={1} brief={brief} bigNum="01" kicker="Wie ben je" title="Jouw gegevens" backHref="/" backLabel="Terug naar de homepage">
+    <StepShell briefId={id} current={1} brief={brief} bigNum="01" kicker="Wie ben je" title="Jouw gegevens" backHref="/" backLabel="Terug naar de homepage" showWipe>
       <div className="field-grid">
         <div className="full">
           <label className="field-label">Bedrijfsnaam</label>

@@ -11,6 +11,41 @@ import { TONE_LABELS } from '../../../../components/flowData';
 const MAX_TONES = 2;
 const TONE_ORDER = Object.keys(TONE_LABELS);
 
+// Character caps on the brief's free-text fields — mirrored server-side in
+// lib/db.js's FIELD_MAX_LENGTHS (the real enforcement; these maxLength
+// attributes are just the UI's first line of defense). Sized from real
+// client answers we collected across several actual briefs: product,
+// USP and kernboodschap answers ranged from ~60 to ~780 characters when a
+// client wrote a thorough, thoughtful answer, so these caps sit well above
+// that (a safety net against an extreme paste, not a tight limit that would
+// clip a genuinely detailed brief) — disclaimerText is left the most
+// generous of all since it's legally-required text that must never be cut
+// off mid-sentence.
+const FIELD_LIMITS = {
+  product: 1200,
+  decisionMaker: 200,
+  audienceAgeInterests: 1000,
+  usp: 1200,
+  priceDetail: 150,
+  mainMessage: 1200,
+  cta: 150,
+  slogan: 150,
+  disclaimerText: 2000,
+  extraNote: 1000,
+};
+
+function CharCount({ field, value }) {
+  const max = FIELD_LIMITS[field];
+  if (!max) return null;
+  const len = (value || '').length;
+  const near = len >= max * 0.9;
+  return (
+    <div style={{ marginTop: 4, textAlign: 'right', fontSize: 11, color: near ? '#B06156' : '#9C9890' }}>
+      {len} / {max}
+    </div>
+  );
+}
+
 // Step 3 — mirrors public/brief.html (renamed "Brief" / details step).
 export default function DetailsPage({ params }) {
   const { id } = params;
@@ -101,7 +136,8 @@ export default function DetailsPage({ params }) {
     <StepShell briefId={id} current={3} brief={brief} bigNum="03" kicker="De inhoud" title="Jouw brief" hint="Nog een paar korte vragen over je commercial en je brief." backHref={`/brief/${id}/delivery`} backLabel="Terug naar levering">
       <div style={{ marginBottom: 22 }}>
         <label className="field-label">Welk product of welke dienst wil je promoten?</label>
-        <textarea style={{ minHeight: 64 }} value={form.product} placeholder="Waar gaat de commercial over?" onChange={(e) => update('product', e.target.value)} />
+        <textarea style={{ minHeight: 64 }} maxLength={FIELD_LIMITS.product} value={form.product} placeholder="Waar gaat de commercial over?" onChange={(e) => update('product', e.target.value)} />
+        <CharCount field="product" value={form.product} />
       </div>
 
       <div style={{ marginBottom: 22, borderTop: '1px solid #EEECE3', paddingTop: 20 }}>
@@ -113,19 +149,22 @@ export default function DetailsPage({ params }) {
         {form.audience === 'b2b' ? (
           <div style={{ marginTop: 12 }}>
             <label className="field-label">Wie neemt daar de beslissing?</label>
-            <input type="text" value={form.decisionMaker} placeholder="Bijv. IT-directeur, inkoopmanager" onChange={(e) => update('decisionMaker', e.target.value)} />
+            <input type="text" maxLength={FIELD_LIMITS.decisionMaker} value={form.decisionMaker} placeholder="Bijv. IT-directeur, inkoopmanager" onChange={(e) => update('decisionMaker', e.target.value)} />
+            <CharCount field="decisionMaker" value={form.decisionMaker} />
           </div>
         ) : (
           <div style={{ marginTop: 12 }}>
             <label className="field-label">Leeftijd en interesses van je doelgroep</label>
-            <input type="text" value={form.audienceAgeInterests} placeholder="Bijv. 30–50 jaar, gezinnen" onChange={(e) => update('audienceAgeInterests', e.target.value)} />
+            <input type="text" maxLength={FIELD_LIMITS.audienceAgeInterests} value={form.audienceAgeInterests} placeholder="Bijv. 30–50 jaar, gezinnen" onChange={(e) => update('audienceAgeInterests', e.target.value)} />
+            <CharCount field="audienceAgeInterests" value={form.audienceAgeInterests} />
           </div>
         )}
       </div>
 
       <div style={{ marginBottom: 22, borderTop: '1px solid #EEECE3', paddingTop: 20 }}>
         <label className="field-label">Waarom kiezen klanten voor jou, en niet voor een concurrent?</label>
-        <textarea style={{ minHeight: 64 }} value={form.usp} placeholder="Jouw belangrijkste voordeel" onChange={(e) => update('usp', e.target.value)} />
+        <textarea style={{ minHeight: 64 }} maxLength={FIELD_LIMITS.usp} value={form.usp} placeholder="Jouw belangrijkste voordeel" onChange={(e) => update('usp', e.target.value)} />
+        <CharCount field="usp" value={form.usp} />
       </div>
 
       <div style={{ marginBottom: 22, borderTop: '1px solid #EEECE3', paddingTop: 20 }}>
@@ -137,14 +176,16 @@ export default function DetailsPage({ params }) {
         {form.price === true && (
           <div style={{ marginTop: 12 }}>
             <label className="field-label">Welke prijs of aanbieding?</label>
-            <input type="text" value={form.priceDetail} placeholder="Bijv. vanaf €99 per maand" onChange={(e) => update('priceDetail', e.target.value)} />
+            <input type="text" maxLength={FIELD_LIMITS.priceDetail} value={form.priceDetail} placeholder="Bijv. vanaf €99 per maand" onChange={(e) => update('priceDetail', e.target.value)} />
+            <CharCount field="priceDetail" value={form.priceDetail} />
           </div>
         )}
       </div>
 
       <div style={{ marginBottom: 22, borderTop: '1px solid #EEECE3', paddingTop: 20 }}>
         <label className="field-label">Wat wil je vooral vertellen?</label>
-        <textarea style={{ minHeight: 80 }} value={form.mainMessage} placeholder="De kernboodschap die je wilt overbrengen" onChange={(e) => update('mainMessage', e.target.value)} />
+        <textarea style={{ minHeight: 80 }} maxLength={FIELD_LIMITS.mainMessage} value={form.mainMessage} placeholder="De kernboodschap die je wilt overbrengen" onChange={(e) => update('mainMessage', e.target.value)} />
+        <CharCount field="mainMessage" value={form.mainMessage} />
       </div>
 
       <div style={{ marginBottom: 22, borderTop: '1px solid #EEECE3', paddingTop: 20 }}>
@@ -172,24 +213,27 @@ export default function DetailsPage({ params }) {
       <div className="field-grid" style={{ marginBottom: 22, borderTop: '1px solid #EEECE3', paddingTop: 20 }}>
         <div>
           <label className="field-label">Call-to-action of website</label>
-          <input type="text" value={form.cta} placeholder="Bijv. 'Bestel nu op merk.nl'" onChange={(e) => update('cta', e.target.value)} />
+          <input type="text" maxLength={FIELD_LIMITS.cta} value={form.cta} placeholder="Bijv. 'Bestel nu op merk.nl'" onChange={(e) => update('cta', e.target.value)} />
+          <CharCount field="cta" value={form.cta} />
         </div>
         <div>
           <label className="field-label">Heeft je bedrijf al een slogan? <span style={{ color: '#8C8880', fontWeight: 400 }}>(optioneel)</span></label>
-          <input type="text" value={form.slogan} placeholder="Bijv. 'Altijd in de buurt'" onChange={(e) => update('slogan', e.target.value)} />
+          <input type="text" maxLength={FIELD_LIMITS.slogan} value={form.slogan} placeholder="Bijv. 'Altijd in de buurt'" onChange={(e) => update('slogan', e.target.value)} />
+          <CharCount field="slogan" value={form.slogan} />
         </div>
         <div className="full hint" style={{ marginTop: -10 }}>Als je er een hebt, gebruiken we deze aan het einde van het script.</div>
       </div>
 
       <div style={{ marginBottom: 22, borderTop: '1px solid #EEECE3', paddingTop: 20 }}>
         <label className="field-label">Verplichte tekst of disclaimers</label>
-        <textarea style={{ minHeight: 56 }} value={form.disclaimerText} placeholder="Bijv. 'Vraag naar de voorwaarden'" onChange={(e) => update('disclaimerText', e.target.value)} />
+        <textarea style={{ minHeight: 56 }} maxLength={FIELD_LIMITS.disclaimerText} value={form.disclaimerText} placeholder="Bijv. 'Vraag naar de voorwaarden'" onChange={(e) => update('disclaimerText', e.target.value)} />
         <div className="hint" style={{ marginTop: 5 }}>Deze tekst nemen we altijd op in het script — ook als er later wordt aangepast.</div>
       </div>
 
       <div style={{ marginBottom: 22, borderTop: '1px solid #EEECE3', paddingTop: 20 }}>
         <label className="field-label">Extra opmerkingen <span style={{ color: '#8C8880', fontWeight: 400 }}>(optioneel)</span></label>
-        <textarea style={{ minHeight: 56 }} value={form.extraNote} placeholder="Nog iets anders dat we moeten weten?" onChange={(e) => update('extraNote', e.target.value)} />
+        <textarea style={{ minHeight: 56 }} maxLength={FIELD_LIMITS.extraNote} value={form.extraNote} placeholder="Nog iets anders dat we moeten weten?" onChange={(e) => update('extraNote', e.target.value)} />
+        <CharCount field="extraNote" value={form.extraNote} />
       </div>
 
 

@@ -8,7 +8,7 @@ import useMinDelay from '../../../../components/useMinDelay';
 import { useBrief } from '../../../../components/useBrief';
 import { MONTH_NAMES } from '../../../../components/flowData';
 
-const VARIATION_COUNT_OPTIONS = ['1', '2', '3'];
+const VARIATION_COUNT_OPTIONS = ['1', '2', '3', '4', '5', '6'];
 
 // Step 2 — mirrors public/delivery.html.
 export default function DeliveryPage({ params }) {

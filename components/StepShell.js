@@ -120,7 +120,7 @@ function ResumeCard({ briefId, defaultEmail }) {
 // On a narrow (<=900px) screen the sidebar stays down the LEFT EDGE as a
 // slim step-number rail instead of stacking full-width above the form —
 // see the mobile media query below for why and how.
-export default function StepShell({ briefId, current, brief, subtitle, bigNum, kicker, title, hint, backHref, backLabel, children }) {
+export default function StepShell({ briefId, current, brief, subtitle, bigNum, kicker, title, hint, backHref, backLabel, children, showWipe = false }) {
   const reached = computeReached(brief);
   const companyName = brief && brief.companyName && brief.companyName.trim() ? brief.companyName : null;
 
@@ -195,15 +195,18 @@ export default function StepShell({ briefId, current, brief, subtitle, bigNum, k
 
   return (
     <div style={{ background: '#DEDCD7', display: 'flex' }} className="tfa-shell">
-      {/* The one gold swipe transition in the whole flow: StepShell mounts
-          exactly once per step (unlike Preloader, which mounts twice per
-          transition — see the comment in Preloader.js), so this is the
-          right place for it. The page underneath is already fully rendered
-          the instant this mounts; the panel just covers it for a beat and
-          then slides off, so the swipe reads as "the preloader hands off
-          into this page" rather than a flash tacked onto the preloader
-          itself. */}
-      <span className="tfa-shell-wipe" aria-hidden="true" />
+      {/* The gold swipe transition — StepShell mounts exactly once per step
+          (unlike Preloader, which mounts twice per transition — see the
+          comment in Preloader.js), so this is the right place for it. The
+          page underneath is already fully rendered the instant this mounts;
+          the panel just covers it for a beat and then slides off, so the
+          swipe reads as "the preloader hands off into this page" rather
+          than a flash tacked onto the preloader itself.
+          Only shown on the two "main transitions" in the flow — landing
+          page into the tool (step 1, contact) and the hand-off into the
+          script step (step 4) — everywhere else it fired on every single
+          navigation between steps, which read as too flashy/repetitive. */}
+      {showWipe && <span className="tfa-shell-wipe" aria-hidden="true" />}
       <div
         ref={sidebarRef}
         onClickCapture={handleRailClick}

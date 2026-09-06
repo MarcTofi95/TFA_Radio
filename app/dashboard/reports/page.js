@@ -46,6 +46,47 @@ function BreakdownCard({ title, rows, emptyLabel }) {
   );
 }
 
+// Tone -> music/voice: one row per tone that's actually been chosen, with
+// how often, and what music/voice tended to go with it. A plain table
+// reads better here than bars — three different kinds of value (a count
+// and two "most common" labels) don't compress into one bar length.
+function ToneLinksTable({ rows }) {
+  return (
+    <div style={cardStyle}>
+      <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 4 }}>Tone of voice → muziek & stem</div>
+      <div style={{ fontSize: 12, color: '#8C8880', marginBottom: 14, lineHeight: 1.5 }}>
+        Van de briefs die deze tone kozen (brief-stap "Hoe moet de commercial klinken?"): welke playlist en stem kwamen het vaakst terug.
+      </div>
+      {rows.length === 0 ? (
+        <div style={{ fontSize: 12.5, color: '#8C8880' }}>Nog geen data.</div>
+      ) : (
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12.5 }}>
+            <thead>
+              <tr style={{ textAlign: 'left', color: '#8C8880', fontSize: 11, textTransform: 'uppercase', letterSpacing: '.03em' }}>
+                <th style={{ padding: '0 10px 8px 0', fontWeight: 600 }}>Tone</th>
+                <th style={{ padding: '0 10px 8px 0', fontWeight: 600 }}>Briefs</th>
+                <th style={{ padding: '0 10px 8px 0', fontWeight: 600 }}>Populairste playlist</th>
+                <th style={{ padding: '0 0 8px 0', fontWeight: 600 }}>Populairste stem</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r) => (
+                <tr key={r.key} style={{ borderTop: '1px solid #EEECE3' }}>
+                  <td style={{ padding: '8px 10px 8px 0', fontWeight: 600, color: '#383209', whiteSpace: 'nowrap' }}>{r.label}</td>
+                  <td style={{ padding: '8px 10px', color: '#5C5850' }}>{r.count}</td>
+                  <td style={{ padding: '8px 10px', color: '#1D1D1D' }}>{r.topPlaylist}</td>
+                  <td style={{ padding: '8px 0', color: '#1D1D1D' }}>{r.topVoice}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function TrendCard({ months }) {
   const max = Math.max(1, ...months.map((m) => m.count));
   return (
@@ -142,6 +183,23 @@ export default async function ReportsPage() {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 14 }} className="tfa-reports-grid">
           <BreakdownCard title="Gekozen aantal impressies" rows={report.impressionsBreakdown} />
           <BreakdownCard title="Verdeling per teamlid" rows={report.assignedBreakdown} emptyLabel="Nog geen briefs toegewezen." />
+        </div>
+
+        <div style={{ margin: '24px 0 6px' }}>
+          <h2 style={{ fontFamily: "'Playfair Display', Georgia, serif", fontWeight: 600, fontSize: 20, margin: '0 0 4px', color: '#1D1D1D' }}>
+            Muziek & stem
+          </h2>
+          <p style={{ fontSize: 12.5, color: '#5C5850', margin: 0, maxWidth: 720, lineHeight: 1.5 }}>
+            Wat klanten daadwerkelijk kiezen — handig voor het bijstellen van de playlists en het ontwerpen van nieuwe stemmen.
+          </p>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 14 }} className="tfa-reports-grid">
+          <BreakdownCard title="Meest gekozen tracks" rows={report.topTracks} emptyLabel="Nog geen muziek gekozen." />
+          <BreakdownCard title="Meest gekozen playlists" rows={report.topPlaylists} emptyLabel="Nog geen muziek gekozen." />
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 14 }} className="tfa-reports-grid">
+          <BreakdownCard title="Meest gekozen stemmen" rows={report.topVoices} emptyLabel="Nog geen stem gekozen." />
+          <ToneLinksTable rows={report.toneLinks} />
         </div>
       </main>
 
